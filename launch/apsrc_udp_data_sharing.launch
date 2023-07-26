@@ -1,0 +1,5 @@
+<launch>
+  <node pkg="apsrc_udp_data_sharing" type="apsrc_udp_data_sharing_node" name="apsrc_udp_data_sharing" output="screen" />
+
+  <rosparam command="load" file="$(find apsrc_udp_data_sharing)/config/params.yaml" />
+</launch>
