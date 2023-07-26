@@ -1,0 +1,9 @@
+<library path="lib/libapsrc_udp_data_sharing_nodelets">
+  <class name="apsrc_udp_data_sharing/apsrc_udp_data_sharing_nodelet"
+         type="apsrc_udp_data_sharing::ApsrcUdpDataSharingNl"
+         base_class_type="nodelet::Nodelet">
+    <description>
+      none
+    </description>
+  </class>
+</library>

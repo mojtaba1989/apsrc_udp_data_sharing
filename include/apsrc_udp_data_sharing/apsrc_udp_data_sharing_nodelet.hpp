@@ -5,6 +5,7 @@
 #include <ros/package.h>
 #include <nodelet/nodelet.h>
 #include <pluginlib/class_list_macros.h>
+#include <ros/serialization.h>
 
 #include <network_interface/udp_server.h>
 #include <network_interface/network_interface.h>
@@ -21,15 +22,17 @@
 
 namespace apsrc_udp_data_sharing 
 {
-class ApsrcUdpDataSharingNL : public nodelet::Nodelet
+class ApsrcUdpDataSharingNl : public nodelet::Nodelet
 {
 public:
-  ApsrcUdpDataSharingNL();
-  ~ApsrcUdpDataSharingNL();
+  ApsrcUdpDataSharingNl();
+  ~ApsrcUdpDataSharingNl();
 
 private:
+virtual void onInit();
 
-
+// Nodehandles
+  ros::NodeHandle nh_, pnh_;
 };
 }
 #endif //APSRC_UDP_DATA_SharingNl_H
