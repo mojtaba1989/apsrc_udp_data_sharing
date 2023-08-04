@@ -1,10 +1,7 @@
 apsrc_udp_network:
-  # IP and port to bind and listen for incoming data
-  server_ip: 127.0.0.1
-  server_port: 2221
-
   # IP and port to send message to
-  destination_ip: 127.0.0.1
-  destination_port: 2222
+  destination_ip: 192.168.222.1
+  destination_port: 1552
+  duration : 0.1
   
   # List of broadcasting topics
