@@ -47,7 +47,7 @@ class ReqMsgUnpack:
     def unpack(self, prnt=True):
             self.header_unpack(prnt)
             
-            data_r = unpack('=iHB', self.msg[44:52])
+            data_r = unpack('=iHB', self.msg[44:51])
             header = ['closest_global_waypoint_id', 'current_velocity', 'DBW_enabled:']
             print("\n".join("{} : {}".format(x, y) for x, y in zip(list(header), list(data_r))))
             
@@ -74,10 +74,10 @@ socket_address = ('192.168.222.1', 1552)
 if __name__ == '__main__':
     print('hi')
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    so.bind(socket_address)
+    s.bind(socket_address)
     while True:
         try:
-            data, addr = sock.recvfrom(4096)
+            data, addr = s.recvfrom(4096)
             ReqMsgUnpack(data).unpack()
         except KeyboardInterrupt:
             s.close()
