@@ -36,7 +36,7 @@ namespace ApsUDPMod {
     public:
         uint8_t msg_id;
         int32_t respond_stamp[2];
-        uint8_t info[10];
+        int8_t info[10];
 
         int pack(std::vector<uint8_t> &buffer) {
             buffer[0] = msg_id;
