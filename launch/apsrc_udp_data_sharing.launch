@@ -1,5 +1,14 @@
 <launch>
-  <node pkg="apsrc_udp_data_sharing" type="apsrc_udp_data_sharing_node" name="apsrc_udp_data_sharing" output="screen" />
+  <arg name="node_name" default="apsrc_udp_data_sharing"/>
+  <arg name="port" default="1552"/>
+  <arg name="ip" default="127.0.0.1"/>
+  <arg name="frequency" default="0.1"/>
+  <arg name="waypoint_only" default="false" />
 
-  <rosparam command="load" file="$(find apsrc_udp_data_sharing)/config/params.yaml" />
+  <node name="$(arg node_name)" pkg="apsrc_udp_data_sharing" type="apsrc_udp_data_sharing_node" output="screen"> 
+    <param name="destination_port" value="$(arg port)" />
+    <param name="destination_ip" value="$(arg ip)" />
+    <param name="frequency" value="$(arg frequency)" />
+    <param name="waypoint_only" value="$(arg waypoint_only)" />
+  </node>
 </launch>
