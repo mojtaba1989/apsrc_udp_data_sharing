@@ -77,6 +77,7 @@ void ApsrcUdpDataSharingNl::UDPDataSharingGeneral()
   if (udp_interface_.is_open()){
     udp_interface_.write(message_.pack());
     message_ = {};
+    message_.header.info[0] = 0;
     UDPReportShare();
     UDPStatusShare();
     UDPGlobalPathShare();
@@ -171,7 +172,6 @@ void ApsrcUdpDataSharingNl::UDPFullPathShare()
         msg.wp_array[i].z = static_cast<int16_t>(base_waypoints_.waypoints[i+last_shared_id_].pose.pose.position.z*10);
       }
       last_shared_id_ = end_id;
-      std::unique_lock<std::mutex> udp_lock(udp_mtx_);
       udp_interface_.write(msg.pack());
     }
     last_shared_id_ = 0;

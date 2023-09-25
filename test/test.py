@@ -102,7 +102,7 @@ class ReqMsgUnpack:
         if prnt:
             print("\n".join("{} : {}".format(x, y) for x, y
                                 in zip(msg_list, unpacked)))
-        columns = ['wp_id', 'x', 'y', 'z', 'yaw', 'velocity', 'change_flag']
+        columns = ['wp_id', 'velocity', 'z']
         table = []
         idx = cb+3
         for _ in range(1361):
