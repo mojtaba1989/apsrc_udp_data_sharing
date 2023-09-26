@@ -9,17 +9,16 @@
 
 namespace ApsUDPMod {
     struct waypoint_t {
-        uint32_t waypoint_id = 0;
+        float waypoint_id = 0;
         float x = 0;
         float y = 0;
         float z = 0;
         float yaw = 0;
         float velocity = 0;
-        uint32_t change_flag = 0;
-    };// 28 bytes
+    };// 24 bytes
 
     struct waypoint_short_t {
-        uint16_t waypoint_id = 0;
+        int16_t waypoint_id = 0;
         int16_t velocity = 0;
         int16_t z = 0;
     }; // 6 bytes
@@ -48,13 +47,11 @@ namespace ApsUDPMod {
 
     class replyMsg{
     public:
-        uint8_t num_relies;
-        struct reply_t reply_array[10];
+        struct reply_t reply_array;
 
         int pack(std::vector<uint8_t> &buffer, int i){
-            buffer[i] = num_relies;
-            std::memcpy(&buffer[i+1], &reply_array, 190);
-            return i+191;
+            std::memcpy(&buffer[i], &reply_array, 19);
+            return i+19;
         }
     };
 
@@ -72,7 +69,7 @@ namespace ApsUDPMod {
         }
     };
 
-    class WaypointsArrayMsg {// (2800/1)=2081 bytes
+    class WaypointsArrayMsg {// (2400/1)=2401 bytes
     public:
         uint8_t num_waypoints = 0;
         struct waypoint_t waypoints_array[100];
@@ -80,19 +77,26 @@ namespace ApsUDPMod {
         int pack(std::vector<uint8_t> &buffer, int i) {
           buffer[i] = num_waypoints;
           std::memcpy(&buffer[i+1], waypoints_array, 2800);
-          return i+2801;
+          return i+2401;
         }
     };
 
-    class LatLongOffsetMsg { // 16 bytes
+    class LatLongOffsetMsg { // 40 bytes
     public:
         double lat;
         double lon;
+        double x;
+        double y;
+        double z;
+
 
         int pack(std::vector<uint8_t> &buffer, int i){
             std::memcpy(&buffer[i], &lat, 8);
             std::memcpy(&buffer[i+8], &lon, 8);
-            return i+16;
+            std::memcpy(&buffer[i+16], &x, 8);
+            std::memcpy(&buffer[i+24], &y, 8);
+            std::memcpy(&buffer[i+32], &z, 8);
+            return i+40;
         }
     };
 
@@ -128,15 +132,18 @@ namespace ApsUDPMod {
         ApsUDPMod::header header;
         struct waypoint_short_t wp_array[1361];
         uint32_t crc;
+        uint16_t number_of_waypoints;
         uint16_t start_id;
         bool end_of_data = true;
+        
 
         std::vector<uint8_t> pack() {
             std::vector<uint8_t> buffer(8192);
             int cb = header.pack(buffer);
-            std::memcpy(&buffer[cb], &start_id, 2);
-            buffer[cb+2] = static_cast<uint8_t>(end_of_data);
-            std::memcpy(&buffer[cb+3], wp_array, 8166);
+            std::memcpy(&buffer[9], &number_of_waypoints, 2);
+            std::memcpy(&buffer[11], &start_id, 2);
+            buffer[13] = static_cast<uint8_t>(end_of_data);
+            std::memcpy(&buffer[cb], wp_array, 8166);
 
             // Calculate CRC
             boost::crc_32_type msg_crc;

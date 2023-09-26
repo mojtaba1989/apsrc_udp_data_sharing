@@ -32,7 +32,8 @@ void ApsrcUdpDataSharingNl::onInit()
   if (!waypoint_only_){
     current_velocity_sub_     = nh_.subscribe("current_velocity", 1, &ApsrcUdpDataSharingNl::velocityCallback, this);
     vehicle_status_sub_       = nh_.subscribe("vehicle_status", 1, &ApsrcUdpDataSharingNl::vehicleStatusCallback, this);
-    backplane_estimation_sub_ = nh_.subscribe("backplane_estimation/filtered_offsets", 1, &ApsrcUdpDataSharingNl::backPlaneFilteredMarkerCallback, this);
+    backplane_estimation_sub_ = nh_.subscribe("backplane_estimation/filtered_offsets", 1, &ApsrcUdpDataSharingNl::backPlaneEstimationCallback, this);
+    backplane_marker_sub_     = nh_.subscribe("backplane_estimation/backplane_filtered_marker", 1, &ApsrcUdpDataSharingNl::backPlaneMarkerCallback, this);
     udp_report_sub_           = nh_.subscribe("apsrc_udp/received_commands_report", 1, &ApsrcUdpDataSharingNl::udpReceivedReportCallback, this);
   } else {
     udp_request_sub_           = nh_.subscribe("apsrc_udp/received_commands", 1, &ApsrcUdpDataSharingNl::udpReceivedCommandCallback, this);
@@ -91,20 +92,17 @@ void ApsrcUdpDataSharingNl::UDPDataSharingGeneral()
 
 void ApsrcUdpDataSharingNl::UDPReportShare()
 {
-  if (replies_.size() > 0){
+  if (report_received_){
     std::unique_lock<std::mutex> msg_lock(msg_mtx_);
-    uint end_id = replies_.size() < 10 ? replies_.size() : 10;
-    for (uint i = 0; i < end_id; i++){
-      message_.replies_msg.reply_array[i].response_to_msg_id = replies_[i].msg_id;
-      message_.replies_msg.reply_array[i].response_to_request_id = replies_[i].request_id;
-      message_.replies_msg.reply_array[i].request_stamp[0] = replies_[i].request_stamp.toSec();
-      message_.replies_msg.reply_array[i].request_stamp[1] = replies_[i].request_stamp.toNSec();
-      message_.replies_msg.reply_array[i].acknowledge_stamp[0] = replies_[i].header.stamp.toSec();
-      message_.replies_msg.reply_array[i].acknowledge_stamp[1] = replies_[i].header.stamp.toNSec();
-      message_.replies_msg.reply_array[i].request_accomplished = replies_[i].request_accomplished;
-    }
-    message_.header.info[0] += 1;
-    replies_ = {};
+    message_.replies_msg.reply_array.response_to_msg_id = report_.msg_id;
+    message_.replies_msg.reply_array.response_to_request_id = report_.request_id;
+    message_.replies_msg.reply_array.request_stamp[0] = report_.request_stamp.toSec();
+    message_.replies_msg.reply_array.request_stamp[1] = report_.request_stamp.toNSec();
+    message_.replies_msg.reply_array.acknowledge_stamp[0] = report_.header.stamp.toSec();
+    message_.replies_msg.reply_array.acknowledge_stamp[1] = report_.header.stamp.toNSec();
+    message_.replies_msg.reply_array.request_accomplished = report_.request_accomplished;
+
+    report_received_ = false;
   }
 }
 
@@ -114,7 +112,6 @@ void ApsrcUdpDataSharingNl::UDPStatusShare()
   message_.status_msg.current_velocity = current_velocity_;
   message_.status_msg.dbw_engaged = dbw_engaged_;
   message_.status_msg.closest_global_waypoint_id = closest_waypoint_id_;
-  message_.header.info[0] += 2; 
 }
 
 void ApsrcUdpDataSharingNl::UDPGlobalPathShare()
@@ -129,7 +126,7 @@ void ApsrcUdpDataSharingNl::UDPGlobalPathShare()
     for (uint i = 0; i < message_.waypoints_array_msg.num_waypoints; i++) {
       uint wp_id = i + start_id;
       message_.waypoints_array_msg.waypoints_array[i].waypoint_id =
-              temp_waypoints.waypoints[wp_id].gid;
+              static_cast<float>(temp_waypoints.waypoints[wp_id].gid);
       message_.waypoints_array_msg.waypoints_array[i].x =
               temp_waypoints.waypoints[wp_id].pose.pose.position.x;
       message_.waypoints_array_msg.waypoints_array[i].y =
@@ -140,19 +137,25 @@ void ApsrcUdpDataSharingNl::UDPGlobalPathShare()
               tf::getYaw(temp_waypoints.waypoints[wp_id].pose.pose.orientation);
       message_.waypoints_array_msg.waypoints_array[i].velocity =
               temp_waypoints.waypoints[wp_id].twist.twist.linear.x;
-      message_.waypoints_array_msg.waypoints_array[i].change_flag =
-              temp_waypoints.waypoints[wp_id].change_flag;
     }
-    message_.header.info[0] += 4;
   }
 }
 
 void ApsrcUdpDataSharingNl::UDPBackPlaneEstimationShare()
 {
-  std::unique_lock<std::mutex> msg_lock(msg_mtx_);
-  message_.lat_lon_msg.lat = lat_long_offset_.lateral_offset;
-  message_.lat_lon_msg.lon = lat_long_offset_.longitudinal_offset;
-  message_.header.info[0] += 8;
+  if (received_estimation_ and received_marker_){
+    std::unique_lock<std::mutex> msg_lock(msg_mtx_);
+    message_.lat_lon_msg.lat = lat_long_offset_.lateral_offset;
+    message_.lat_lon_msg.lon = lat_long_offset_.longitudinal_offset;
+    message_.lat_lon_msg.x   = marker_.scale.x;
+    message_.lat_lon_msg.y   = marker_.scale.y;
+    message_.lat_lon_msg.z   = marker_.scale.z;
+
+    lat_long_offset_ = {};
+    marker_ = {};
+    received_estimation_ = false;
+    received_marker_ = false;
+  }
 }
 
 void ApsrcUdpDataSharingNl::UDPFullPathShare()
@@ -163,11 +166,12 @@ void ApsrcUdpDataSharingNl::UDPFullPathShare()
     {
       ApsUDPMod::FullWaypoint_Msg msg = {};
       msg.start_id = last_shared_id_;
+      msg.number_of_waypoints = static_cast<uint16_t>(base_waypoints_.waypoints.size());
       msg.end_of_data = (base_waypoints_.waypoints.size() - last_shared_id_) <= 1361 ? true:false;
       full_path_has_been_shared_ = msg.end_of_data;
       size_t end_id = msg.end_of_data ? (base_waypoints_.waypoints.size() - last_shared_id_) : 1361;
       for (size_t i = 0; i < end_id; ++i){
-        msg.wp_array[i].waypoint_id = static_cast<uint16_t>(base_waypoints_.waypoints[i+last_shared_id_].gid);
+        msg.wp_array[i].waypoint_id = static_cast<int16_t>(base_waypoints_.waypoints[i+last_shared_id_].gid);
         msg.wp_array[i].velocity = static_cast<int16_t>(base_waypoints_.waypoints[i+last_shared_id_].twist.twist.linear.x*10);
         msg.wp_array[i].z = static_cast<int16_t>(base_waypoints_.waypoints[i+last_shared_id_].pose.pose.position.z*10);
       }
@@ -209,13 +213,22 @@ void ApsrcUdpDataSharingNl::baseWaypointCallback(const autoware_msgs::Lane::Cons
 void ApsrcUdpDataSharingNl::udpReceivedReportCallback(const apsrc_msgs::CommandAccomplished::ConstPtr& command_accomplished)
 {
   std::unique_lock<std::mutex> udp_lock(udp_mtx_);
-  replies_.push_back(*command_accomplished);
+  report_ = *command_accomplished;
+  report_received_ = true;
 }
 
-void ApsrcUdpDataSharingNl::backPlaneFilteredMarkerCallback(const apsrc_msgs::LatLonOffsets::ConstPtr& back_plane_estimation)
+void ApsrcUdpDataSharingNl::backPlaneEstimationCallback(const apsrc_msgs::LatLonOffsets::ConstPtr& back_plane_estimation)
 {
   std::unique_lock<std::mutex> wf_lock(wf_mtx_);
   lat_long_offset_ = *back_plane_estimation;
+  received_estimation_ = true;
+}
+
+void ApsrcUdpDataSharingNl::backPlaneMarkerCallback(const visualization_msgs::Marker::ConstPtr& back_plane_marker)
+{
+  std::unique_lock<std::mutex> wf_lock(wf_mtx_);
+  marker_ = *back_plane_marker;
+  received_marker_ = true;
 }
 
 void ApsrcUdpDataSharingNl::udpReceivedCommandCallback(const apsrc_msgs::CommandReceived::ConstPtr& command_received)

@@ -43,7 +43,8 @@ void baseWaypointCallback(const autoware_msgs::Lane::ConstPtr& base_waypoints);
 void closestWaypointCallback(const std_msgs::Int32::ConstPtr& closest_waypoint_id);
 void vehicleStatusCallback(const autoware_msgs::VehicleStatus::ConstPtr& vehicle_status);
 void velocityCallback(const geometry_msgs::TwistStamped::ConstPtr& current_velocity);
-void backPlaneFilteredMarkerCallback(const apsrc_msgs::LatLonOffsets::ConstPtr& back_plane_estimation);
+void backPlaneEstimationCallback(const apsrc_msgs::LatLonOffsets::ConstPtr& back_plane_estimation);
+void backPlaneMarkerCallback(const visualization_msgs::Marker::ConstPtr& back_plane_estimation);
 void udpReceivedReportCallback(const apsrc_msgs::CommandAccomplished::ConstPtr& command_accomplished);
 void udpReceivedCommandCallback(const apsrc_msgs::CommandReceived::ConstPtr& command_received);
 
@@ -67,6 +68,7 @@ ros::Subscriber vehicle_status_sub_;
 ros::Subscriber closest_waypoint_sub_;
 ros::Subscriber base_waypoints_sub_;
 ros::Subscriber backplane_estimation_sub_;
+ros::Subscriber backplane_marker_sub_;
 ros::Subscriber udp_report_sub_;
 ros::Subscriber udp_request_sub_;
 
@@ -90,11 +92,15 @@ size_t last_shared_id_ = 0;
 // Current velocity of the vehicle (mm/s)
 uint16_t current_velocity_ = 0;
 
-// Replies
-std::vector<apsrc_msgs::CommandAccomplished> replies_ = {};
+// Report
+apsrc_msgs::CommandAccomplished report_ = {};
+bool report_received_ = false; 
 
 // Vehicle Following
 apsrc_msgs::LatLonOffsets lat_long_offset_;
+visualization_msgs::Marker marker_;
+bool received_marker_ = false;
+bool received_estimation_ = false;
 
 // DBW in manual or autonomy
 bool dbw_engaged_ = false;
