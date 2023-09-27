@@ -173,7 +173,7 @@ void ApsrcUdpDataSharingNl::UDPFullPathShare()
       for (size_t i = 0; i < end_id; ++i){
         msg.wp_array[i].waypoint_id = static_cast<int16_t>(base_waypoints_.waypoints[i+last_shared_id_].gid);
         msg.wp_array[i].velocity = static_cast<int16_t>(base_waypoints_.waypoints[i+last_shared_id_].twist.twist.linear.x*10);
-        msg.wp_array[i].z = static_cast<int16_t>(base_waypoints_.waypoints[i+last_shared_id_].pose.pose.position.z*10);
+        msg.wp_array[i].z = static_cast<int16_t>(base_waypoints_.waypoints[i+last_shared_id_].pose.pose.position.z*100);
       }
       last_shared_id_ = end_id;
       udp_interface_.write(msg.pack());
