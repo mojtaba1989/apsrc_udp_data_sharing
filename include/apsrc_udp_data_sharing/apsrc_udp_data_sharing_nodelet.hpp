@@ -16,6 +16,7 @@
 #include <geometry_msgs/TwistStamped.h>
 #include <tf/transform_datatypes.h>
 #include <std_msgs/Int32.h>
+#include <visualization_msgs/MarkerArray.h>
 #include <visualization_msgs/Marker.h>
 #include <apsrc_msgs/CommandAccomplished.h>
 #include <apsrc_msgs/LatLonOffsets.h>
@@ -43,11 +44,9 @@ void baseWaypointCallback(const autoware_msgs::Lane::ConstPtr& base_waypoints);
 void closestWaypointCallback(const std_msgs::Int32::ConstPtr& closest_waypoint_id);
 void vehicleStatusCallback(const autoware_msgs::VehicleStatus::ConstPtr& vehicle_status);
 void velocityCallback(const geometry_msgs::TwistStamped::ConstPtr& current_velocity);
-void backPlaneEstimationCallback(const apsrc_msgs::LatLonOffsets::ConstPtr& back_plane_estimation);
-void backPlaneMarkerCallback(const visualization_msgs::Marker::ConstPtr& back_plane_estimation);
 void udpReceivedReportCallback(const apsrc_msgs::CommandAccomplished::ConstPtr& command_accomplished);
 void udpReceivedCommandCallback(const apsrc_msgs::CommandReceived::ConstPtr& command_received);
-
+void objectMarkerArrayCallback(const visualization_msgs::MarkerArray::ConstPtr& marker_array);
 
 // Util functions
 bool openConnection();
@@ -67,10 +66,12 @@ ros::Subscriber current_velocity_sub_;
 ros::Subscriber vehicle_status_sub_;
 ros::Subscriber closest_waypoint_sub_;
 ros::Subscriber base_waypoints_sub_;
-ros::Subscriber backplane_estimation_sub_;
-ros::Subscriber backplane_marker_sub_;
 ros::Subscriber udp_report_sub_;
 ros::Subscriber udp_request_sub_;
+ros::Subscriber obj_mrk_array_sub_;
+
+// Publisher
+ros::Publisher lead_car_pub_;
 
 
 // Internal State
@@ -97,10 +98,13 @@ apsrc_msgs::CommandAccomplished report_ = {};
 bool report_received_ = false; 
 
 // Vehicle Following
-apsrc_msgs::LatLonOffsets lat_long_offset_;
-visualization_msgs::Marker marker_;
+visualization_msgs::Marker lead_ = {};
+visualization_msgs::Marker last_ = {};
 bool received_marker_ = false;
+bool tracked_available_ = false;
+uint8_t tracking_strike_ = 0;
 bool received_estimation_ = false;
+
 
 // DBW in manual or autonomy
 bool dbw_engaged_ = false;
@@ -111,9 +115,18 @@ int32_t closest_waypoint_id_ = 0;
 // Parameters
 std::string destination_ip_;
 int destination_port_;
-double duration_;
+double frequency_ = 10.0;
 bool waypoint_only_ = false;
-};
 
+// Utils
+double dist_2(visualization_msgs::Marker first, visualization_msgs::Marker second)
+{
+  double dx = first.pose.position.x - second.pose.position.x;
+  double dy = first.pose.position.y - second.pose.position.y;
+  double dz = first.pose.position.z - second.pose.position.z;
+  return sqrt(dx*dx + dy*dy + dz*dz);
+}
+
+};
 }
 #endif //APSRC_UDP_DATA_SharingNl_H

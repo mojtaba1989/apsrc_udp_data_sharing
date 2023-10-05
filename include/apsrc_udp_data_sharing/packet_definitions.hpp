@@ -76,7 +76,7 @@ namespace ApsUDPMod {
 
         int pack(std::vector<uint8_t> &buffer, int i) {
           buffer[i] = num_waypoints;
-          std::memcpy(&buffer[i+1], waypoints_array, 2800);
+          std::memcpy(&buffer[i+1], waypoints_array, 2400);
           return i+2401;
         }
     };
