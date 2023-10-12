@@ -60,12 +60,18 @@ namespace ApsUDPMod {
         int32_t closest_global_waypoint_id;
         uint16_t current_velocity;
         bool dbw_engaged = false; 
+        bool lead_vehicle_detected = false;
+        float vehicle_heading = 0;
+        uint8_t path_curvature_score = 0;
 
         int pack(std::vector<uint8_t> &buffer, int i) {
           std::memcpy(&buffer[i], &closest_global_waypoint_id, 4);
           std::memcpy(&buffer[i+4], &current_velocity, 2);
-          buffer[i+6] = static_cast<uint8_t>(dbw_engaged);
-          return i+7;
+          std::memcpy(&buffer[i+6], &vehicle_heading, 4);
+          buffer[i+10] = static_cast<uint8_t>(dbw_engaged);
+          buffer[i+11] = static_cast<uint8_t>(lead_vehicle_detected);
+          buffer[i+12] = path_curvature_score;
+          return i+13;
         }
     };
 
@@ -88,7 +94,8 @@ namespace ApsUDPMod {
         double x;
         double y;
         double z;
-
+        double log_lat;
+        double log_long;
 
         int pack(std::vector<uint8_t> &buffer, int i){
             std::memcpy(&buffer[i], &lat, 8);
@@ -96,7 +103,9 @@ namespace ApsUDPMod {
             std::memcpy(&buffer[i+16], &x, 8);
             std::memcpy(&buffer[i+24], &y, 8);
             std::memcpy(&buffer[i+32], &z, 8);
-            return i+40;
+            std::memcpy(&buffer[i+40], &log_lat, 8);
+            std::memcpy(&buffer[i+48], &log_long, 8);
+            return i+56;
         }
     };
 

@@ -10,6 +10,7 @@ set(CMAKE_CXX_FLAGS "-std=c++14 -Wall -Wextra ${CMAKE_CXX_FLAGS}")
 set(catkin_deps
     autoware_msgs
     geometry_msgs
+    sensor_msgs
     apsrc_msgs
     network_interface
     nodelet

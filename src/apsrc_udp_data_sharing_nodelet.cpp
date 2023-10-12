@@ -34,6 +34,8 @@ void ApsrcUdpDataSharingNl::onInit()
     vehicle_status_sub_   = nh_.subscribe("vehicle_status", 1, &ApsrcUdpDataSharingNl::vehicleStatusCallback, this);
     udp_report_sub_       = nh_.subscribe("apsrc_udp/received_commands_report", 1, &ApsrcUdpDataSharingNl::udpReceivedReportCallback, this);
     obj_mrk_array_sub_    = nh_.subscribe("/detection/lidar_detector/objects_markers", 1, &ApsrcUdpDataSharingNl::objectMarkerArrayCallback, this);
+    backplane_marker_sub_ = nh_.subscribe("backplane_estimation/backplane_filtered_marker", 1, &ApsrcUdpDataSharingNl::backPlaneMarkerCallback, this);
+    vehicle_heading_sub_  = nh_.subscribe("gps/imu", 1, &ApsrcUdpDataSharingNl::vehicleHeadingCallback, this);
     timer_                = nh_.createTimer(ros::Duration(1/frequency_), std::bind(&ApsrcUdpDataSharingNl::UDPDataSharingGeneral, this));
     lead_car_pub_         = nh_.advertise<visualization_msgs::Marker>("apsrc_vehicle_following/lead_car", 10, true);
   } else {
@@ -69,6 +71,10 @@ void ApsrcUdpDataSharingNl::loadParams()
   pnh_.param("destination_port", destination_port_, 1552);
   pnh_.param("frequency", frequency_, 10.0);
   pnh_.param("waypoint_only", waypoint_only_, false);
+  pnh_.param("roi_lat", roi_lat_, 2.0);
+  pnh_.param("roi_long", roi_long_, 40.0);
+  pnh_.param("min_score", min_score_, 10);
+  pnh_.param("path_eval_size", path_eval_size_, 20);
 
   ROS_INFO("Parameters Loaded");
   return;
@@ -114,6 +120,7 @@ void ApsrcUdpDataSharingNl::UDPStatusShare()
   message_.status_msg.current_velocity = current_velocity_;
   message_.status_msg.dbw_engaged = dbw_engaged_;
   message_.status_msg.closest_global_waypoint_id = closest_waypoint_id_;
+  message_.status_msg.vehicle_heading = vehicle_heading_;
 }
 
 void ApsrcUdpDataSharingNl::UDPGlobalPathShare()
@@ -140,6 +147,8 @@ void ApsrcUdpDataSharingNl::UDPGlobalPathShare()
       message_.waypoints_array_msg.waypoints_array[i].velocity =
               temp_waypoints.waypoints[wp_id].twist.twist.linear.x;
     }
+
+    message_.status_msg.path_curvature_score = ApsrcUdpDataSharingNl::path_curvature_score(path_eval_size_);
   }
 }
 
@@ -154,6 +163,16 @@ void ApsrcUdpDataSharingNl::UDPBackPlaneEstimationShare()
     message_.lat_lon_msg.z   = lead_.scale.z;
 
     received_estimation_ = false;
+  }
+
+  if (received_marker_){
+    std::unique_lock<std::mutex> msg_lock(msg_mtx_);
+    message_.lat_lon_msg.log_lat  = marker_.pose.position.y;
+    message_.lat_lon_msg.log_long = marker_.pose.position.x - marker_.scale.y / 2;
+    received_marker_ = false;
+    message_.status_msg.lead_vehicle_detected = lidar_perception_score_ == min_score_;
+  } else {
+    message_.status_msg.lead_vehicle_detected = false;
   }
 }
 
@@ -280,6 +299,24 @@ void ApsrcUdpDataSharingNl::udpReceivedCommandCallback(const apsrc_msgs::Command
   if (command.request_id == 1){
     ApsrcUdpDataSharingNl::UDPFullPathShare();
   }
+}
+
+void ApsrcUdpDataSharingNl::backPlaneMarkerCallback(const visualization_msgs::Marker::ConstPtr& back_plane_marker)
+{
+  std::unique_lock<std::mutex> wf_lock(wf_mtx_);
+  marker_ = *back_plane_marker;
+  received_marker_ = true;
+  if (back_plane_marker->pose.position.x <= roi_long_ and std::abs(back_plane_marker->pose.position.y) <= roi_lat_){
+    lidar_perception_score_ = std::min(min_score_, lidar_perception_score_ + 1);
+  } else {
+    lidar_perception_score_ = 0;
+  }
+}
+
+void ApsrcUdpDataSharingNl::vehicleHeadingCallback(const sensor_msgs::Imu::ConstPtr& imu)
+{
+  std::unique_lock<std::mutex> vs_lock(status_data_mtx_);
+  vehicle_heading_ = static_cast<float>(tf::getYaw(imu->orientation));
 }
 
 }

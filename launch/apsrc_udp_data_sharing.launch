@@ -4,11 +4,19 @@
   <arg name="ip" default="127.0.0.1"/>
   <arg name="frequency" default="10"/>
   <arg name="waypoint_only" default="false" />
+  <arg name="roi_lat" default="2.0" />
+  <arg name="roi_long" default="40.0" />
+  <arg name="min_score" default = "10" />
+  <arg name="path_eval_size" default = "20" />
 
   <node name="$(arg node_name)" pkg="apsrc_udp_data_sharing" type="apsrc_udp_data_sharing_node" output="screen"> 
     <param name="destination_port" value="$(arg port)" />
     <param name="destination_ip" value="$(arg ip)" />
     <param name="frequency" value="$(arg frequency)" />
     <param name="waypoint_only" value="$(arg waypoint_only)" />
+    <param name="roi_lat" value="$(arg roi_lat)" />
+    <param name="roi_long" value="$(arg roi_long)" />
+    <param name="min_score" value="$(arg min_score)" />
+    <param name="path_eval_size" value="$(arg path_eval_size)" />
   </node>
 </launch>
