@@ -112,6 +112,7 @@ bool tracked_available_             = false;
 uint8_t tracking_strike_            = 0;
 bool received_estimation_           = false;
 uint8_t lidar_perception_score_     = 0;
+double lead_speed_ = 0;
 
 
 

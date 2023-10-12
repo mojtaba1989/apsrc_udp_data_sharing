@@ -287,7 +287,13 @@ void ApsrcUdpDataSharingNl::objectMarkerArrayCallback(const visualization_msgs::
     tracked_available_ = true;
     tracking_strike_ = 0;
   }
+  
   lead_.type = visualization_msgs::Marker::CYLINDER;
+  double t_last = last_.header.stamp.toSec();
+  double t_lead = lead_.header.stamp.toSec();
+  double dist = ApsrcUdpDataSharingNl::dist_2(last_, lead_);
+  lead_speed_ = dist / (t_lead - t_last);
+  last_ = lead_;
   lead_car_pub_.publish(lead_);
   received_estimation_ = true;
 }

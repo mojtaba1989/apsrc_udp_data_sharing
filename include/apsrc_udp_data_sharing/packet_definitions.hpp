@@ -63,15 +63,17 @@ namespace ApsUDPMod {
         bool lead_vehicle_detected = false;
         float vehicle_heading = 0;
         uint8_t path_curvature_score = 0;
+        double lead_vehicle_speed = 0;
 
         int pack(std::vector<uint8_t> &buffer, int i) {
           std::memcpy(&buffer[i], &closest_global_waypoint_id, 4);
           std::memcpy(&buffer[i+4], &current_velocity, 2);
           std::memcpy(&buffer[i+6], &vehicle_heading, 4);
-          buffer[i+10] = static_cast<uint8_t>(dbw_engaged);
-          buffer[i+11] = static_cast<uint8_t>(lead_vehicle_detected);
-          buffer[i+12] = path_curvature_score;
-          return i+13;
+          std::memcpy(&buffer[i+10], &lead_vehicle_speed, 8);
+          buffer[i+18] = static_cast<uint8_t>(dbw_engaged);
+          buffer[i+19] = static_cast<uint8_t>(lead_vehicle_detected);
+          buffer[i+20] = path_curvature_score;
+          return i+21;
         }
     };
 
