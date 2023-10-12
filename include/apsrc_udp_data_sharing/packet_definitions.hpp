@@ -55,15 +55,15 @@ namespace ApsUDPMod {
         }
     };
 
-    class statusMsg {//10 bytes
+    class statusMsg {//21 bytes
     public:
         int32_t closest_global_waypoint_id;
         uint16_t current_velocity;
-        bool dbw_engaged = false; 
-        bool lead_vehicle_detected = false;
         float vehicle_heading = 0;
-        uint8_t path_curvature_score = 0;
-        double lead_vehicle_speed = 0;
+        double lead_vehicle_speed = 0;        
+        bool dbw_engaged = false; 
+        bool lead_vehicle_detected = false;   
+        int8_t path_curvature_score = 0;
 
         int pack(std::vector<uint8_t> &buffer, int i) {
           std::memcpy(&buffer[i], &closest_global_waypoint_id, 4);
