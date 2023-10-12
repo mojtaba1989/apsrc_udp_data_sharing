@@ -144,7 +144,7 @@ double dist_2(visualization_msgs::Marker first, visualization_msgs::Marker secon
   return sqrt(dx*dx + dy*dy + dz*dz);
 }
 
-uint8_t path_curvature_score(size_t num_of_wp)
+int8_t path_curvature_score(size_t num_of_wp)
 {
   if (base_waypoints_.waypoints.size() < (closest_waypoint_id_ + num_of_wp)){
     return 0;
@@ -161,7 +161,7 @@ uint8_t path_curvature_score(size_t num_of_wp)
       return 0;
   }
 
-  return static_cast<uint8_t>(R2(X,Y) * 100);
+  return static_cast<int8_t>(R2(X,Y) * 100);
 }
 
 double mean(const std::vector<double>& v) {
