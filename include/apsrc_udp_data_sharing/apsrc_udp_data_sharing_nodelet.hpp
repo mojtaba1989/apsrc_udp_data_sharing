@@ -7,6 +7,8 @@
 #include <pluginlib/class_list_macros.h>
 #include <ros/serialization.h>
 #include <cmath>
+#include <tf2_ros/transform_listener.h>
+
 
 #include <network_interface/udp_server.h>
 #include <network_interface/network_interface.h>
@@ -23,6 +25,7 @@
 #include <apsrc_msgs/LatLonOffsets.h>
 #include <apsrc_msgs/CommandReceived.h>
 #include <sensor_msgs/Imu.h>
+#include <apsrc_msgs/EsrValid.h>
 
 #include "apsrc_udp_data_sharing/packet_definitions.hpp"
 
@@ -41,6 +44,9 @@ virtual void onInit();
 void loadParams();
 ros::Timer timer_;
 
+tf2_ros::Buffer tfBuffer_;
+
+
 // Sunscriber Callbacks
 void baseWaypointCallback(const autoware_msgs::Lane::ConstPtr& base_waypoints);
 void closestWaypointCallback(const std_msgs::Int32::ConstPtr& closest_waypoint_id);
@@ -51,6 +57,9 @@ void udpReceivedCommandCallback(const apsrc_msgs::CommandReceived::ConstPtr& com
 void objectMarkerArrayCallback(const visualization_msgs::MarkerArray::ConstPtr& marker_array);
 void backPlaneMarkerCallback(const visualization_msgs::Marker::ConstPtr& marker);
 void vehicleHeadingCallback(const sensor_msgs::Imu::ConstPtr& imu);
+void obstacleCallback(const visualization_msgs::Marker::ConstPtr& obstacle);
+void obstacleWaypointsCallback(const std_msgs::Int32::ConstPtr& obstacle_wp);
+void radarTrackCallback(const apsrc_msgs::EsrValid::ConstPtr& radar_track);
 
 // Util functions
 bool openConnection();
@@ -60,6 +69,8 @@ void UDPGlobalPathShare();
 void UDPBackPlaneEstimationShare();
 void UDPReportShare();
 void UDPFullPathShare();
+void UDPExtar();
+void UDPRadar();
 
 
 // Nodehandles
@@ -75,6 +86,9 @@ ros::Subscriber udp_request_sub_;
 ros::Subscriber obj_mrk_array_sub_;
 ros::Subscriber backplane_marker_sub_;
 ros::Subscriber vehicle_heading_sub_;
+ros::Subscriber obstacle_sub_;
+ros::Subscriber obstacle_waypoints_sub_;
+ros::Subscriber radar_track_sub_;
 
 // Publisher
 ros::Publisher lead_car_pub_;
@@ -88,20 +102,20 @@ std::mutex udp_mtx_;
 std::mutex wf_mtx_;
 std::mutex msg_mtx_;
 ApsUDPMod::Message_general message_ = {};
-uint8_t msg_id_ = 0;
+uint8_t msg_id_                     = 0;
 
 // Current base_waypoints
-bool received_base_waypoints_ = false;
+bool received_base_waypoints_   = false;
 autoware_msgs::Lane base_waypoints_;
 bool full_path_has_been_shared_ = false;
-size_t last_shared_id_ = 0;
+size_t last_shared_id_          = 0;
 
 // Current velocity of the vehicle (mm/s)
 uint16_t current_velocity_ = 0;
 
 // Report
 apsrc_msgs::CommandAccomplished report_ = {};
-bool report_received_ = false; 
+bool report_received_                   = false; 
 
 // Vehicle Following
 visualization_msgs::Marker lead_    = {};
@@ -113,6 +127,18 @@ uint8_t tracking_strike_            = 0;
 bool received_estimation_           = false;
 uint8_t lidar_perception_score_     = 0;
 double lead_speed_ = 0;
+
+// Autoware messages
+visualization_msgs::Marker obstacle_  = {};
+bool received_obstacle_               = false;
+float lat_offset_from_waypoints      = 0;
+int32_t obstacle_waypoints_           = {};
+bool received_obstacle_waypoints_     = false;
+
+
+// Radar Tracking
+apsrc_msgs::EsrValid radar_track_ = {};
+bool received_radar_track_        = false;
 
 
 
@@ -144,24 +170,31 @@ double dist_2(visualization_msgs::Marker first, visualization_msgs::Marker secon
   return sqrt(dx*dx + dy*dy + dz*dz);
 }
 
-uint8_t path_curvature_score(size_t num_of_wp)
+float dist_to_waypoints()
+{
+  size_t target_id = closest_waypoint_id_ + obstacle_waypoints_;
+  if (base_waypoints_.waypoints.size() < target_id){
+    return 0;
+  }
+     
+  double yaw = tf::getYaw(base_waypoints_.waypoints[target_id].pose.pose.orientation);
+  double dx  = base_waypoints_.waypoints[target_id].pose.pose.position.x - obstacle_.pose.position.x;
+  double dy  = base_waypoints_.waypoints[target_id].pose.pose.position.y - obstacle_.pose.position.y;
+  double d   = dy * std::cos(yaw) - dx * std::sin(yaw);
+
+  return static_cast<float>(d);
+}
+
+double path_curvature_score(size_t num_of_wp)
 {
   if (base_waypoints_.waypoints.size() < (closest_waypoint_id_ + num_of_wp)){
     return 0;
   }
-  std::vector<double> X;
-  std::vector<double> Y;
+  double dx = base_waypoints_.waypoints[closest_waypoint_id_].pose.pose.position.x - base_waypoints_.waypoints[closest_waypoint_id_+num_of_wp].pose.pose.position.x;
+  double dy = base_waypoints_.waypoints[closest_waypoint_id_].pose.pose.position.y - base_waypoints_.waypoints[closest_waypoint_id_+num_of_wp].pose.pose.position.y;
+  double dz = base_waypoints_.waypoints[closest_waypoint_id_].pose.pose.position.z - base_waypoints_.waypoints[closest_waypoint_id_+num_of_wp].pose.pose.position.z;
 
-  for (size_t i = closest_waypoint_id_; i < closest_waypoint_id_ + num_of_wp; i++){
-    X.push_back(base_waypoints_.waypoints[i].pose.pose.position.x);
-    Y.push_back(base_waypoints_.waypoints[i].pose.pose.position.y);
-  }
-
-  if (X.size() != Y.size()) {
-      return 0;
-  }
-
-  return static_cast<uint8_t>(R2(X,Y) * 100);
+  return sqrt(dx*dx + dy*dy + dz*dz)/num_of_wp;
 }
 
 double mean(const std::vector<double>& v) {
@@ -176,7 +209,7 @@ double R2(const std::vector<double>& x, const std::vector<double>& y) {
     double x_mean = mean(x);
     double y_mean = mean(y);
 
-    double numerator = 0.0;
+    double numerator    = 0.0;
     double denominator1 = 0.0;
     double denominator2 = 0.0;
 

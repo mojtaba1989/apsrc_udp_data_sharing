@@ -5,6 +5,7 @@
 #include <ros/serialization.h>
 #include <apsrc_msgs/CommandAccomplished.h>
 #include "apsrc_udp_data_sharing/apsrc_udp_data_sharing_nodelet.hpp"
+#include <tf2_ros/transform_listener.h>
 
 namespace apsrc_udp_data_sharing 
 {
@@ -24,22 +25,26 @@ void ApsrcUdpDataSharingNl::onInit()
   nh_ = getNodeHandle();
   pnh_ = getPrivateNodeHandle();
   loadParams();
+  tf2_ros::TransformListener tfListener(tfBuffer_);
 
   // Subscribers & Publishers
   base_waypoints_sub_       = nh_.subscribe("base_waypoints", 1, &ApsrcUdpDataSharingNl::baseWaypointCallback, this);
   closest_waypoint_sub_     = nh_.subscribe("closest_waypoint", 1, &ApsrcUdpDataSharingNl::closestWaypointCallback, this);
 
   if (!waypoint_only_){
-    current_velocity_sub_ = nh_.subscribe("current_velocity", 1, &ApsrcUdpDataSharingNl::velocityCallback, this);
-    vehicle_status_sub_   = nh_.subscribe("vehicle_status", 1, &ApsrcUdpDataSharingNl::vehicleStatusCallback, this);
-    udp_report_sub_       = nh_.subscribe("apsrc_udp/received_commands_report", 1, &ApsrcUdpDataSharingNl::udpReceivedReportCallback, this);
-    obj_mrk_array_sub_    = nh_.subscribe("/detection/lidar_detector/objects_markers", 1, &ApsrcUdpDataSharingNl::objectMarkerArrayCallback, this);
-    backplane_marker_sub_ = nh_.subscribe("backplane_estimation/backplane_filtered_marker", 1, &ApsrcUdpDataSharingNl::backPlaneMarkerCallback, this);
-    vehicle_heading_sub_  = nh_.subscribe("gps/imu", 1, &ApsrcUdpDataSharingNl::vehicleHeadingCallback, this);
-    timer_                = nh_.createTimer(ros::Duration(1/frequency_), std::bind(&ApsrcUdpDataSharingNl::UDPDataSharingGeneral, this));
-    lead_car_pub_         = nh_.advertise<visualization_msgs::Marker>("apsrc_vehicle_following/lead_car", 10, true);
+    current_velocity_sub_   = nh_.subscribe("current_velocity", 1, &ApsrcUdpDataSharingNl::velocityCallback, this);
+    vehicle_status_sub_     = nh_.subscribe("vehicle_status", 1, &ApsrcUdpDataSharingNl::vehicleStatusCallback, this);
+    udp_report_sub_         = nh_.subscribe("apsrc_udp/received_commands_report", 1, &ApsrcUdpDataSharingNl::udpReceivedReportCallback, this);
+    obj_mrk_array_sub_      = nh_.subscribe("detection/lidar_detector/objects_markers", 1, &ApsrcUdpDataSharingNl::objectMarkerArrayCallback, this);
+    backplane_marker_sub_   = nh_.subscribe("backplane_estimation/backplane_filtered_marker", 1, &ApsrcUdpDataSharingNl::backPlaneMarkerCallback, this);
+    vehicle_heading_sub_    = nh_.subscribe("gps/imu", 1, &ApsrcUdpDataSharingNl::vehicleHeadingCallback, this);
+    obstacle_sub_           = nh_.subscribe("obstacle", 1, &ApsrcUdpDataSharingNl::obstacleCallback, this);
+    obstacle_waypoints_sub_ = nh_.subscribe("obstacle_waypoint", 1, &ApsrcUdpDataSharingNl::obstacleWaypointsCallback, this);
+    radar_track_sub_        = nh_.subscribe("/radar_fc/parsed_tx/radarvalid1", 1 ,&ApsrcUdpDataSharingNl::radarTrackCallback, this);
+    timer_                  = nh_.createTimer(ros::Duration(1/frequency_), std::bind(&ApsrcUdpDataSharingNl::UDPDataSharingGeneral, this));
+    lead_car_pub_           = nh_.advertise<visualization_msgs::Marker>("apsrc_vehicle_following/lead_car", 10, true);
   } else {
-    udp_request_sub_           = nh_.subscribe("apsrc_udp/received_commands", 1, &ApsrcUdpDataSharingNl::udpReceivedCommandCallback, this);
+    udp_request_sub_        = nh_.subscribe("apsrc_udp/received_commands", 1, &ApsrcUdpDataSharingNl::udpReceivedCommandCallback, this);
   }
 
   if (openConnection())
@@ -91,6 +96,8 @@ void ApsrcUdpDataSharingNl::UDPDataSharingGeneral()
     UDPStatusShare();
     UDPGlobalPathShare();
     UDPBackPlaneEstimationShare();
+    UDPExtar();
+    UDPRadar();
     message_.header.msg_id = ++msg_id_;
     message_.header.respond_stamp[0] = ros::Time::now().sec;
     message_.header.respond_stamp[1] = ros::Time::now().nsec;
@@ -173,6 +180,38 @@ void ApsrcUdpDataSharingNl::UDPBackPlaneEstimationShare()
     message_.status_msg.lead_vehicle_detected = lidar_perception_score_ == min_score_;
   } else {
     message_.status_msg.lead_vehicle_detected = false;
+  }
+}
+
+void ApsrcUdpDataSharingNl::UDPExtar()
+{
+  if (received_obstacle_ and received_obstacle_waypoints_){
+    message_.extra_msg.offset_flag = 2;
+    message_.extra_msg.obstacle_lat_offset = ApsrcUdpDataSharingNl::dist_to_waypoints();
+    message_.extra_msg.obstacle_waypoint = obstacle_waypoints_;
+    received_obstacle_ = false;
+    received_obstacle_waypoints_ = false;
+    return;
+  }
+
+  if (received_obstacle_waypoints_){
+    message_.extra_msg.offset_flag = 1;
+    message_.extra_msg.obstacle_waypoint = obstacle_waypoints_;
+    received_obstacle_waypoints_ = false;
+    return;
+  }
+
+  return;
+}
+
+void ApsrcUdpDataSharingNl::UDPRadar()
+{
+  if(received_radar_track_){
+    message_.radar_msg.angle = radar_track_.lr_angle;
+    message_.radar_msg.range = radar_track_.lr_range;
+    message_.radar_msg.range_rate = radar_track_.lr_range_rate;
+
+    received_radar_track_ = false;
   }
 }
 
@@ -296,6 +335,8 @@ void ApsrcUdpDataSharingNl::objectMarkerArrayCallback(const visualization_msgs::
   last_ = lead_;
   lead_car_pub_.publish(lead_);
   received_estimation_ = true;
+  
+  tfBuffer_.transform(lead_, lead_, "map");
 }
 
 void ApsrcUdpDataSharingNl::udpReceivedCommandCallback(const apsrc_msgs::CommandReceived::ConstPtr& command_received)
@@ -323,6 +364,27 @@ void ApsrcUdpDataSharingNl::vehicleHeadingCallback(const sensor_msgs::Imu::Const
 {
   std::unique_lock<std::mutex> vs_lock(status_data_mtx_);
   vehicle_heading_ = static_cast<float>(tf::getYaw(imu->orientation));
+}
+
+void ApsrcUdpDataSharingNl::obstacleCallback(const visualization_msgs::Marker::ConstPtr& obstacle)
+{
+  std::unique_lock<std::mutex> obs_lock(status_data_mtx_);
+  obstacle_ = *obstacle;
+  received_obstacle_ = true;
+}
+
+void ApsrcUdpDataSharingNl::obstacleWaypointsCallback(const std_msgs::Int32::ConstPtr& obstacle_wp)
+{
+  std::unique_lock<std::mutex> obs_wp_lock(status_data_mtx_);
+  obstacle_waypoints_ = obstacle_wp->data;
+  received_obstacle_waypoints_ = true;
+}
+
+void ApsrcUdpDataSharingNl::radarTrackCallback(const apsrc_msgs::EsrValid::ConstPtr& radar_track)
+{
+  std::unique_lock<std::mutex> radar_tracking_lock(status_data_mtx_);
+  radar_track_ = *radar_track;
+  received_radar_track_ = true;
 }
 
 }

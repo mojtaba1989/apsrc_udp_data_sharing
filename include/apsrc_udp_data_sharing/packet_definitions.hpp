@@ -55,7 +55,7 @@ namespace ApsUDPMod {
         }
     };
 
-    class statusMsg {//10 bytes
+    class statusMsg {//28 bytes
     public:
         int32_t closest_global_waypoint_id;
         uint16_t current_velocity;
@@ -72,8 +72,8 @@ namespace ApsUDPMod {
           std::memcpy(&buffer[i+10], &lead_vehicle_speed, 8);
           buffer[i+18] = static_cast<uint8_t>(dbw_engaged);
           buffer[i+19] = static_cast<uint8_t>(lead_vehicle_detected);
-          buffer[i+20] = path_curvature_score;
-          return i+21;
+          std::memcpy(&buffer[i+20], &path_curvature_score, 8);
+          return i+28;
         }
     };
 
@@ -89,7 +89,7 @@ namespace ApsUDPMod {
         }
     };
 
-    class LatLongOffsetMsg { // 40 bytes
+    class LatLongOffsetMsg { // 56 bytes
     public:
         double lat;
         double lon;
@@ -111,13 +111,44 @@ namespace ApsUDPMod {
         }
     };
 
-    class Message_general {//
+    class ExtraMsg{// 9 bytes
+    public:
+        uint8_t offset_flag;
+        int32_t obstacle_waypoint;
+        float obstacle_lat_offset;
+
+        int pack(std::vector<uint8_t> &buffer, int i){
+            buffer[i] = offset_flag;
+            std::memcpy(&buffer[i+1], &obstacle_waypoint, 4);
+            std::memcpy(&buffer[i+5], &obstacle_lat_offset, 4);
+            return i+9;            
+        }
+    };
+
+    class RadarMsg{ // 12 bytes
+    public:
+        float range;
+        float range_rate;
+        float angle;
+
+        int pack(std::vector<uint8_t> &buffer, int i){
+            std::memcpy(&buffer[i], &range, 4);
+            std::memcpy(&buffer[i+4], &range_rate, 4);
+            std::memcpy(&buffer[i+8], &angle, 4);
+            return i+12;            
+        }
+
+    };
+
+    class Message_general {// 
     public:
         ApsUDPMod::header header;
         ApsUDPMod::replyMsg replies_msg;
         ApsUDPMod::WaypointsArrayMsg waypoints_array_msg;
         ApsUDPMod::statusMsg status_msg;
         ApsUDPMod::LatLongOffsetMsg lat_lon_msg;
+        ApsUDPMod::ExtraMsg extra_msg;
+        ApsUDPMod::RadarMsg radar_msg;
         uint32_t crc;
         
 
@@ -128,6 +159,8 @@ namespace ApsUDPMod {
           cb = status_msg.pack(buffer, cb);
           cb = waypoints_array_msg.pack(buffer, cb);
           cb = lat_lon_msg.pack(buffer, cb);
+          cb = extra_msg.pack(buffer, cb);
+          cb = radar_msg.pack(buffer, cb);
           
           // Calculate CRC
           boost::crc_32_type msg_crc;

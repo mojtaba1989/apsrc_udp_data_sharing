@@ -18,6 +18,7 @@ set(catkin_deps
     roslib
     roslint
     std_msgs
+    radar_msgs
 )
 
 find_package(catkin REQUIRED ${catkin_deps})
