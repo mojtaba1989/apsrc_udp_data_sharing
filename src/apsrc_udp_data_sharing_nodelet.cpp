@@ -127,7 +127,6 @@ void ApsrcUdpDataSharingNl::UDPStatusShare()
   message_.status_msg.current_velocity = current_velocity_;
   message_.status_msg.dbw_engaged = dbw_engaged_;
   message_.status_msg.closest_global_waypoint_id = closest_waypoint_id_;
-  message_.status_msg.vehicle_heading = vehicle_heading_;
 }
 
 void ApsrcUdpDataSharingNl::UDPGlobalPathShare()
@@ -328,11 +327,6 @@ void ApsrcUdpDataSharingNl::objectMarkerArrayCallback(const visualization_msgs::
   }
   
   lead_.type = visualization_msgs::Marker::CYLINDER;
-  double t_last = last_.header.stamp.toSec();
-  double t_lead = lead_.header.stamp.toSec();
-  double dist = ApsrcUdpDataSharingNl::dist_2(last_, lead_);
-  lead_speed_ = dist / (t_lead - t_last);
-  last_ = lead_;
   lead_car_pub_.publish(lead_);
   received_estimation_ = true;
   

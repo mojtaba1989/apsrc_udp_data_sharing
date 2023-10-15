@@ -119,7 +119,6 @@ bool report_received_                   = false;
 
 // Vehicle Following
 visualization_msgs::Marker lead_    = {};
-visualization_msgs::Marker last_    = {};
 visualization_msgs::Marker marker_  = {};
 bool received_marker_               = false;
 bool tracked_available_             = false;

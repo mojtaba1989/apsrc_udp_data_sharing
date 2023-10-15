@@ -55,7 +55,7 @@ namespace ApsUDPMod {
         }
     };
 
-    class statusMsg {//28 bytes
+    class statusMsg {//20 bytes
     public:
         int32_t closest_global_waypoint_id;
         uint16_t current_velocity;
@@ -69,11 +69,10 @@ namespace ApsUDPMod {
           std::memcpy(&buffer[i], &closest_global_waypoint_id, 4);
           std::memcpy(&buffer[i+4], &current_velocity, 2);
           std::memcpy(&buffer[i+6], &vehicle_heading, 4);
-          std::memcpy(&buffer[i+10], &lead_vehicle_speed, 8);
-          buffer[i+18] = static_cast<uint8_t>(dbw_engaged);
-          buffer[i+19] = static_cast<uint8_t>(lead_vehicle_detected);
-          std::memcpy(&buffer[i+20], &path_curvature_score, 8);
-          return i+28;
+          buffer[i+10] = static_cast<uint8_t>(dbw_engaged);
+          buffer[i+11] = static_cast<uint8_t>(lead_vehicle_detected);
+          std::memcpy(&buffer[i+12], &path_curvature_score, 8);
+          return i+20;
         }
     };
 
