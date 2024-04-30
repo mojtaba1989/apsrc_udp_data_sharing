@@ -62,9 +62,9 @@ The `packet_definitions.h` file defines various packet structures and classes fo
 - `detected`: int8_t. Indicates if a lead is detected. (0:None, 1:Lidar perception only, 2:apsrc_lead_vehicle_detection only, 3:BOTH)
 - `gap_lat`: double. Latitude gap for lead detection.
 - `gap_lng`: double. Longitude gap for lead detection.
-- `scale_x`: double. Scaling factor in the x-direction for lead detection.
-- `scale_y`: double. Scaling factor in the y-direction for lead detection.
-- `radar_lng`: double. Longitude of the radar for lead vehicle detection.
+- `scale_x`: double. Fitted plane in the x-direction for lead detection.
+- `scale_y`: double. Fitted plane in the y-direction for lead detection.
+- `radar_lng`: double. Radar-based range of lead vehicle detection.
 - `lead_vel_mps_abs`: double. Absolute velocity of the lead vehicle.
 - `lead_vel_mps_rel`: double. Relative velocity of the lead vehicle.
 
