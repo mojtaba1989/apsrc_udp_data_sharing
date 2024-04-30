@@ -8,7 +8,7 @@
 
 
 namespace ApsUDPMod {
-struct waypoint_t {
+struct waypoint_t { 
 	float x = 0;
 	float y = 0;
 	float z = 0;
@@ -16,13 +16,13 @@ struct waypoint_t {
 	float velocity = 0;
 };// 20 bytes
 
-struct waypoint_short_t {
+struct waypoint_short_t { 
 	int16_t waypoint_id = 0;
 	int16_t velocity = 0;
 	int16_t z = 0;
 }; // 6 bytes
 
-struct reply_t {
+struct reply_t { // Waypoint_replanner report publisher
 	uint8_t response_to_msg_id;
 	uint8_t response_to_request_id;
 	int32_t request_stamp[2];
@@ -73,13 +73,13 @@ public:
 class leadDetectMsg { // 57 bytes
 public:
 	int8_t detected;
-	double gap_lat;
-	double gap_lng;
-	double scale_x;
-	double scale_y;
-	double radar_lng;
-	double lead_vel_mps_abs;
-	double lead_vel_mps_rel;
+	double gap_lat; // Logan devel
+	double gap_lng; // Logan devel
+	double scale_x; // Logan devel
+	double scale_y; // Logan devel
+	double radar_lng; // apsrc_lead_vehicle_detection
+	double lead_vel_mps_abs; // apsrc_lead_vehicle_detection
+	double lead_vel_mps_rel; // apsrc_lead_vehicle_detection
 
 	int pack(std::vector<uint8_t> &buffer, int i){
 		buffer[i] = detected;
@@ -94,7 +94,7 @@ public:
 	}
 };
 
-class Message_general { 
+class Message_general { // published periodically 
 public:
 	ApsUDPMod::header header;
 	ApsUDPMod::replyMsg replies_msg;
@@ -119,7 +119,7 @@ public:
 	}
 };
 
-class FullWaypoint_Msg {
+class FullWaypoint_Msg { // Andrew's devel -- needs work
 public:
 	ApsUDPMod::header header;
 	struct waypoint_short_t wp_array[1361];
