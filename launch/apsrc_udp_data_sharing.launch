@@ -3,7 +3,7 @@
   <arg name="port" default="1552"/>
   <arg name="ip" default="127.0.0.1"/>
   <arg name="frequency" default="10"/>
-  <arg name="waypoint_only" default="false" />
+  <arg name="waypoint_only" default="true" />
   <arg name="roi_lat" default="2.0" />
   <arg name="roi_long" default="40.0" />
   <arg name="min_score" default = "10" />

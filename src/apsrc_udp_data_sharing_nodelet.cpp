@@ -35,7 +35,7 @@ void ApsrcUdpDataSharingNl::onInit()
     lead_vehicle_sub_       = nh_.subscribe("/lead_vehicle/track", 1, &ApsrcUdpDataSharingNl::leadVehicleCallback, this);
     timer_                  = nh_.createTimer(ros::Duration(1/frequency_), std::bind(&ApsrcUdpDataSharingNl::UDPDataSharingGeneral, this));
   } else {
-    udp_request_sub_        = nh_.subscribe("apsrc_udp/received_commands", 1, &ApsrcUdpDataSharingNl::udpReceivedCommandCallback, this);
+    here_app_sub_           = nh_.subscribe("here/route", 1, &ApsrcUdpDataSharingNl::hereAppCallback, this);
   }
 
   if (openConnection())
@@ -131,31 +131,6 @@ void ApsrcUdpDataSharingNl::UDPGlobalPathShare()
   }
 }
 
-void ApsrcUdpDataSharingNl::UDPFullPathShare()
-{
-  if (waypoint_only_ and received_base_waypoints_ and closest_waypoint_id_!=-1) {
-    std::unique_lock<std::mutex> msg_lock(msg_mtx_);
-    while (!full_path_has_been_shared_)
-    {
-      ApsUDPMod::FullWaypoint_Msg msg = {};
-      msg.start_id = last_shared_id_;
-      msg.number_of_waypoints = static_cast<uint16_t>(base_waypoints_.waypoints.size());
-      msg.end_of_data = (base_waypoints_.waypoints.size() - last_shared_id_) <= 1361 ? true:false;
-      full_path_has_been_shared_ = msg.end_of_data;
-      size_t end_id = msg.end_of_data ? (base_waypoints_.waypoints.size() - last_shared_id_) : 1361;
-      for (size_t i = 0; i < end_id; ++i){
-        msg.wp_array[i].waypoint_id = static_cast<int16_t>(base_waypoints_.waypoints[i+last_shared_id_].gid);
-        msg.wp_array[i].velocity = static_cast<int16_t>(base_waypoints_.waypoints[i+last_shared_id_].twist.twist.linear.x*10);
-        msg.wp_array[i].z = static_cast<int16_t>(base_waypoints_.waypoints[i+last_shared_id_].pose.pose.position.z*100);
-      }
-      last_shared_id_ = end_id;
-      udp_interface_.write(msg.pack());
-    }
-    last_shared_id_ = 0;
-    full_path_has_been_shared_ = false;
-  }
-}
-
 void ApsrcUdpDataSharingNl::closestWaypointCallback(const std_msgs::Int32::ConstPtr& closest_waypoint_id)
 {
   std::unique_lock<std::mutex> cwp_lock(status_data_mtx_);
@@ -176,15 +151,6 @@ void ApsrcUdpDataSharingNl::udpReceivedReportCallback(const apsrc_msgs::CommandA
   report_received_ = true;
 }
 
-void ApsrcUdpDataSharingNl::udpReceivedCommandCallback(const apsrc_msgs::CommandReceived::ConstPtr& command_received)
-{
-  std::unique_lock<std::mutex> rc_lock(udp_mtx_);
-  apsrc_msgs::CommandReceived command = *command_received;
-  if (command.request_id == 1){
-    ApsrcUdpDataSharingNl::UDPFullPathShare();
-  }
-}
-
 void ApsrcUdpDataSharingNl::backPlaneMarkerCallback(const visualization_msgs::Marker::ConstPtr& msg)
 {
   std::unique_lock<std::mutex> bp_lock(msg_mtx_);
@@ -198,7 +164,8 @@ void ApsrcUdpDataSharingNl::backPlaneMarkerCallback(const visualization_msgs::Ma
   message_.lead_msg.scale_y = msg->scale.y;
 }
 
-void ApsrcUdpDataSharingNl::leadVehicleCallback(const apsrc_msgs::LeadVehicle::ConstPtr& msg){
+void ApsrcUdpDataSharingNl::leadVehicleCallback(const apsrc_msgs::LeadVehicle::ConstPtr& msg)
+{
   std::unique_lock<std::mutex> ld_lock(msg_mtx_);
   if (msg->lead_detected){
     if (message_.lead_msg.detected < 2){
@@ -207,6 +174,51 @@ void ApsrcUdpDataSharingNl::leadVehicleCallback(const apsrc_msgs::LeadVehicle::C
     message_.lead_msg.radar_lng = msg->range;
     message_.lead_msg.lead_vel_mps_abs = msg->speed_mps;
     message_.lead_msg.lead_vel_mps_rel = msg->relative_speed_mps;
+  }
+}
+
+void ApsrcUdpDataSharingNl::hereAppCallback(const apsrc_msgs::Response::ConstPtr& msg)
+{
+  ApsUDPMod::Here_Msg udp_msg;
+  uint8_t number_of_routes = msg->routes.size();
+  for (int ridx = 0; ridx < number_of_routes; ridx++){
+    udp_msg = {};
+    udp_msg.summary_here.route_id = ridx + 1;
+    udp_msg.summary_here.total_number_of_routes = number_of_routes;
+    udp_msg.summary_here.number_of_waypoint = static_cast<uint32_t>(msg->routes[ridx].waypoints.size()/3);
+    if (udp_msg.summary_here.number_of_waypoint > 2665){
+      ROS_WARN("Number of Waypoints exceeded max capacity! Extra points dropped ...");
+      udp_msg.summary_here.number_of_waypoint = static_cast<uint32_t>(2665);
+    }
+    udp_msg.summary_here.length = static_cast<uint32_t>(msg->routes[ridx].distance);
+    udp_msg.summary_here.duration = static_cast<uint32_t>(msg->routes[ridx].duration);
+    udp_msg.summary_here.base_duration = static_cast<uint32_t>(msg->routes[ridx].baseDuration);
+  
+    size_t max_id = udp_msg.summary_here.number_of_waypoint;
+    for (size_t idx = 0; idx < max_id; idx++){
+      udp_msg.here_waypoints[idx].lat = msg->routes[ridx].waypoints[idx * 3];
+      udp_msg.here_waypoints[idx].lng = msg->routes[ridx].waypoints[idx * 3 + 1];
+      udp_msg.here_waypoints[idx].elv = msg->routes[ridx].waypoints[idx * 3 + 2];
+    }
+
+    for (size_t span_id = 0; span_id < msg->routes[ridx].spans.spans.size(); span_id++){
+      udp_msg.here_waypoints[msg->routes[ridx].spans.spans[span_id].offset-1].speed = msg->routes[ridx].spans.spans[span_id].trafficSpeed; 
+      udp_msg.here_waypoints[msg->routes[ridx].spans.spans[span_id].offset-1].base_speed = msg->routes[ridx].spans.spans[span_id].baseSpeed; 
+    }
+
+    for (size_t span_id = 1; span_id < max_id; span_id++){
+      if (udp_msg.here_waypoints[span_id].speed == -1){
+        udp_msg.here_waypoints[span_id].speed = udp_msg.here_waypoints[span_id -1].speed;
+        udp_msg.here_waypoints[span_id].base_speed = udp_msg.here_waypoints[span_id -1].base_speed;
+      }
+    }
+
+    for (size_t action_id = 0; action_id < msg->routes[ridx].actions.actions.size(); action_id++){
+      udp_msg.here_waypoints[msg->routes[ridx].actions.actions[action_id].offset-1].action = 1;
+    }
+
+    udp_interface_.write(udp_msg.pack());
+    ROS_INFO("HERE map route (%d out of %d) has been shared", ridx + 1, number_of_routes);
   }
 }
 }

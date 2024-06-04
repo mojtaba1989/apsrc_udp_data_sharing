@@ -23,6 +23,7 @@
 #include <apsrc_msgs/CommandAccomplished.h>
 #include <apsrc_msgs/CommandReceived.h>
 #include <apsrc_msgs/LeadVehicle.h>
+#include <apsrc_msgs/Response.h>
 
 #include "apsrc_udp_data_sharing/packet_definitions.hpp"
 
@@ -48,13 +49,13 @@ void udpReceivedReportCallback(const apsrc_msgs::CommandAccomplished::ConstPtr& 
 void udpReceivedCommandCallback(const apsrc_msgs::CommandReceived::ConstPtr& command_received);
 void backPlaneMarkerCallback(const visualization_msgs::Marker::ConstPtr& msg);
 void leadVehicleCallback(const apsrc_msgs::LeadVehicle::ConstPtr& msg);
+void hereAppCallback(const apsrc_msgs::Response::ConstPtr& msg);
 
 // Util functions
 bool openConnection();
 void UDPDataSharingGeneral();
 void UDPGlobalPathShare();
 void UDPReportShare();
-void UDPFullPathShare();
 
 // Nodehandles
 ros::NodeHandle nh_, pnh_;
@@ -67,6 +68,7 @@ ros::Subscriber udp_report_sub_;
 ros::Subscriber udp_request_sub_;
 ros::Subscriber backplane_marker_sub_;
 ros::Subscriber lead_vehicle_sub_;
+ros::Subscriber here_app_sub_;
 
 // Internal State
 AS::Network::UDPInterface udp_interface_;

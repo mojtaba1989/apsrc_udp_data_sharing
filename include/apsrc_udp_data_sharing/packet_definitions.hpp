@@ -16,11 +16,23 @@ struct waypoint_t {
 	float velocity = 0;
 };// 20 bytes
 
-struct waypoint_short_t { 
-	int16_t waypoint_id = 0;
-	int16_t velocity = 0;
-	int16_t z = 0;
-}; // 6 bytes
+struct waypoint_here_t { 
+	float lat;
+	float lng;
+	float elv;
+	float speed = -1;
+	float base_speed = -1;
+	float action = 0;
+}; // 24 bytes
+
+struct summary_here_t {
+	uint8_t route_id;
+	uint8_t total_number_of_routes;
+	uint32_t number_of_waypoint;
+	uint32_t length;
+	uint32_t duration;
+	uint32_t base_duration;
+}; // 21 bytes
 
 struct reply_t { // Waypoint_replanner report publisher
 	uint8_t response_to_msg_id;
@@ -65,8 +77,8 @@ public:
 		std::memcpy(&buffer[i], &closest_global_waypoint_id, 4);
 		buffer[i+4] = num_waypoints;
 		std::memcpy(&buffer[i+5], &path_curvature_score, 4);
-		std::memcpy(&buffer[i+9], waypoints_array, 2400);
-		return i+2409;
+		std::memcpy(&buffer[i+9], waypoints_array, 2000);
+		return i+2009;
 	}
 }; 
 
@@ -119,29 +131,17 @@ public:
 	}
 };
 
-class FullWaypoint_Msg { // Andrew's devel -- needs work
+class Here_Msg { // Andrew's devel -- needs work
 public:
 	ApsUDPMod::header header;
-	struct waypoint_short_t wp_array[1361];
-	uint32_t crc;
-	uint16_t number_of_waypoints;
-	uint16_t start_id;
-	bool end_of_data = true;
+	struct summary_here_t summary_here;
+	struct waypoint_here_t here_waypoints[2665];
 	
-
 	std::vector<uint8_t> pack() {
-		std::vector<uint8_t> buffer(8192);
-		int cb = header.pack(buffer);
-		std::memcpy(&buffer[9], &number_of_waypoints, 2);
-		std::memcpy(&buffer[11], &start_id, 2);
-		buffer[13] = static_cast<uint8_t>(end_of_data);
-		std::memcpy(&buffer[cb], wp_array, 8166);
-
-		// Calculate CRC
-		boost::crc_32_type msg_crc;
-		msg_crc.process_bytes(&buffer[0], 8188);
-		crc = msg_crc.checksum();
-		std::memcpy(&buffer[8188], &crc, 4);
+		std::vector<uint8_t> buffer(64000);
+		header.pack(buffer);
+		std::memcpy(&buffer[19], &summary_here, 18);
+		std::memcpy(&buffer[40], &here_waypoints, 63960);
 		return buffer;
 	}     
 };   
