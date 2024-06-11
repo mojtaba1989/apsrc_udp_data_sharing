@@ -28,11 +28,11 @@ struct waypoint_here_t {
 struct summary_here_t {
 	uint8_t route_id;
 	uint8_t total_number_of_routes;
-	uint32_t number_of_waypoint;
-	uint32_t length;
-	uint32_t duration;
-	uint32_t base_duration;
-}; // 21 bytes
+	float number_of_waypoint;
+	float length;
+	float duration;
+	float base_duration;
+}; // 18 bytes
 
 struct reply_t { // Waypoint_replanner report publisher
 	uint8_t response_to_msg_id;
