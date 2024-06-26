@@ -56,6 +56,15 @@ public:
 	}
 };
 
+class summary_here {//18 bytes
+public:
+	summary_here_t summary;
+
+	int pack(std::vector<uint8_t> &buffer, int i) {
+		std::memcpy(&buffer[i], &summary, 18);
+		return 18;
+	}
+};
 class replyMsg{// 19 bytes
 public:
 	struct reply_t reply_array;
@@ -134,13 +143,13 @@ public:
 class Here_Msg { // Andrew's devel -- needs work
 public:
 	ApsUDPMod::header header;
-	struct summary_here_t summary_here;
+	ApsUDPMod::summary_here summary_here;
 	struct waypoint_here_t here_waypoints[2665];
 	
 	std::vector<uint8_t> pack() {
 		std::vector<uint8_t> buffer(64000);
-		header.pack(buffer);
-		std::memcpy(&buffer[19], &summary_here, 18);
+		int cb = header.pack(buffer);
+		cb = summary_here.pack(buffer, cb);
 		std::memcpy(&buffer[40], &here_waypoints, 63960);
 		return buffer;
 	}     
