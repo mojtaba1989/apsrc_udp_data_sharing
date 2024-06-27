@@ -186,14 +186,14 @@ void ApsrcUdpDataSharingNl::hereAppCallback(const apsrc_msgs::Response::ConstPtr
     udp_msg = {};
     udp_msg.route_id = ridx + 1;
     udp_msg.total_number_of_routes = number_of_routes;
-    udp_msg.number_of_waypoint = static_cast<float>(msg->routes[ridx].waypoints.size()/3);
+    udp_msg.number_of_waypoint = static_cast<uint32_t>(msg->routes[ridx].waypoints.size()/3);
     if (udp_msg.number_of_waypoint > 2665){
       ROS_WARN("Number of Waypoints exceeded max capacity! Extra points dropped ...");
-      udp_msg.number_of_waypoint = static_cast<float>(2665);
+      udp_msg.number_of_waypoint = static_cast<uint32_t>(2665);
     }
-    udp_msg.length = static_cast<float>(msg->routes[ridx].distance/1);
-    udp_msg.duration = static_cast<float>(msg->routes[ridx].duration/1);
-    udp_msg.base_duration = static_cast<float>(msg->routes[ridx].baseDuration/1);
+    udp_msg.length = static_cast<uint32_t>(msg->routes[ridx].distance);
+    udp_msg.duration = static_cast<uint32_t>(msg->routes[ridx].duration);
+    udp_msg.base_duration = static_cast<uint32_t>(msg->routes[ridx].baseDuration);
   
     size_t max_id = udp_msg.number_of_waypoint;
     for (size_t idx = 0; idx < max_id; idx++){
