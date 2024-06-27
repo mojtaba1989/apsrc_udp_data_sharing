@@ -134,13 +134,23 @@ public:
 class Here_Msg { // Andrew's devel -- needs work
 public:
 	ApsUDPMod::header header;
-	struct summary_here_t summary_here;
+	uint8_t route_id;
+	uint8_t total_number_of_routes;
+	int32_t number_of_waypoint;
+	int32_t length;
+	int32_t duration;
+	int32_t base_duration;
 	struct waypoint_here_t here_waypoints[2665];
 	
 	std::vector<uint8_t> pack() {
 		std::vector<uint8_t> buffer(64000);
 		header.pack(buffer);
-		std::memcpy(&buffer[19], &summary_here, 18);
+		buffer[19] = route_id;
+		buffer[20] = total_number_of_routes;
+		std::memcpy(&buffer[21], &number_of_waypoint, 4);
+		std::memcpy(&buffer[25], &length, 4);
+		std::memcpy(&buffer[29], &duration, 4);
+		std::memcpy(&buffer[23], &base_duration, 4);
 		std::memcpy(&buffer[40], &here_waypoints, 63960);
 		return buffer;
 	}     
