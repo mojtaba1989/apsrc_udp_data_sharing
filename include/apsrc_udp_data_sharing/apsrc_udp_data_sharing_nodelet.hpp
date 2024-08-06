@@ -7,6 +7,8 @@
 #include <pluginlib/class_list_macros.h>
 #include <ros/serialization.h>
 #include <cmath>
+#include <algorithm>
+#include <cctype>
 #include <tf2_ros/transform_listener.h>
 
 
@@ -99,6 +101,16 @@ double frequency_;
 bool waypoint_only_;
 int path_eval_size_;
 
+// HERE Actions
+std::string ramp__        = "ramp";
+std::string turn_left__   = "turn left";
+std::string turn_right__  = "turn right";
+std::string exit__        = "exit";
+std::string roundabout__  = "roundabout";
+std::string uturn__       = "u-turn";
+std::string continue__    = "continue";
+std::string keep__        = "keep";
+
 // Utils
 float path_curvature_score(size_t num_of_wp)
 {
@@ -110,6 +122,13 @@ float path_curvature_score(size_t num_of_wp)
   double dz = base_waypoints_.waypoints[closest_waypoint_id_].pose.pose.position.z - base_waypoints_.waypoints[closest_waypoint_id_+num_of_wp].pose.pose.position.z;
 
   return static_cast<float>(sqrt(dx*dx + dy*dy + dz*dz)/num_of_wp);
+}
+
+std::string toLowerCase(const std::string& str) {
+    std::string lowerStr = str;
+    std::transform(lowerStr.begin(), lowerStr.end(), lowerStr.begin(),
+                   [](unsigned char c) { return std::tolower(c); });
+    return lowerStr;
 }
 };
 }

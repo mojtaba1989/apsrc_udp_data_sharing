@@ -96,14 +96,14 @@ class ReqMsgUnpack:
     def wp_only_unpack(self, prnt=True):
         idx = 19
         columns = ['route_id', 'total', 'nwp', 'length', 'duration', 'base_duration']
-        unpacked = unpack("2B4I", self.msg[idx:idx+20])
+        unpacked = unpack("=2B4I", self.msg[idx:idx+18])
         if prnt:
             print("\n".join("{} : {}".format(x, y) for x, y
                                 in zip(columns, unpacked)))
         columns = ['lat', 'lng', 'elv', 'speed', 'base speed', 'action']
         table = []
         idx = 40
-        for _ in range(2665):
+        for _ in range(unpacked[2]):
             table.append(list(unpack("6f", self.msg[idx:idx+24])))
             idx = idx+24
         df = pd.DataFrame(table, columns=columns)

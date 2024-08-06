@@ -141,7 +141,7 @@ public:
 		std::memcpy(&buffer[21], &number_of_waypoint, 4);
 		std::memcpy(&buffer[25], &length, 4);
 		std::memcpy(&buffer[29], &duration, 4);
-		std::memcpy(&buffer[23], &base_duration, 4);
+		std::memcpy(&buffer[33], &base_duration, 4);
 		std::memcpy(&buffer[40], &here_waypoints, 63960);
 		return buffer;
 	}     
