@@ -101,16 +101,6 @@ double frequency_;
 bool waypoint_only_;
 int path_eval_size_;
 
-// HERE Actions
-std::string ramp__        = "ramp";
-std::string turn_left__   = "turn left";
-std::string turn_right__  = "turn right";
-std::string exit__        = "exit";
-std::string roundabout__  = "roundabout";
-std::string uturn__       = "u-turn";
-std::string continue__    = "continue";
-std::string keep__        = "keep";
-
 // Utils
 float path_curvature_score(size_t num_of_wp)
 {
