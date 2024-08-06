@@ -115,10 +115,10 @@ float path_curvature_score(size_t num_of_wp)
 }
 
 std::string toLowerCase(const std::string& str) {
-    std::string lowerStr = str;
-    std::transform(lowerStr.begin(), lowerStr.end(), lowerStr.begin(),
-                   [](unsigned char c) { return std::tolower(c); });
-    return lowerStr;
+  std::string lowerStr = str;
+  std::transform(lowerStr.begin(), lowerStr.end(), lowerStr.begin(),
+                  [](unsigned char c) { return std::tolower(c); });
+  return lowerStr;
 }
 };
 }
