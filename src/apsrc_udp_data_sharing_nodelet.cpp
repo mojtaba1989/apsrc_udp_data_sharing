@@ -203,8 +203,8 @@ void ApsrcUdpDataSharingNl::hereAppCallback(const apsrc_msgs::Response::ConstPtr
     }
 
     for (size_t span_id = 0; span_id < msg->routes[ridx].spans.spans.size(); span_id++){
-      udp_msg.here_waypoints[msg->routes[ridx].spans.spans[span_id].offset-1].speed = msg->routes[ridx].spans.spans[span_id].trafficSpeed; 
-      udp_msg.here_waypoints[msg->routes[ridx].spans.spans[span_id].offset-1].base_speed = msg->routes[ridx].spans.spans[span_id].baseSpeed; 
+      udp_msg.here_waypoints[msg->routes[ridx].spans.spans[span_id].offset].speed = msg->routes[ridx].spans.spans[span_id].trafficSpeed; 
+      udp_msg.here_waypoints[msg->routes[ridx].spans.spans[span_id].offset].base_speed = msg->routes[ridx].spans.spans[span_id].baseSpeed; 
     }
 
     for (size_t span_id = 1; span_id < max_id; span_id++){
@@ -217,23 +217,23 @@ void ApsrcUdpDataSharingNl::hereAppCallback(const apsrc_msgs::Response::ConstPtr
     for (size_t action_id = 0; action_id < msg->routes[ridx].actions.actions.size(); action_id++){
       std::string lower_instruction = toLowerCase(msg->routes[ridx].actions.actions[action_id].instruction);
       if (lower_instruction.find("ramp") != std::string::npos){
-        udp_msg.here_waypoints[msg->routes[ridx].actions.actions[action_id].offset-1].action = 2;
+        udp_msg.here_waypoints[msg->routes[ridx].actions.actions[action_id].offset].action = 2;
       } else  if (lower_instruction.find("turn left") != std::string::npos){
-        udp_msg.here_waypoints[msg->routes[ridx].actions.actions[action_id].offset-1].action = 3;
+        udp_msg.here_waypoints[msg->routes[ridx].actions.actions[action_id].offset].action = 3;
       } else  if (lower_instruction.find("turn right") != std::string::npos){
-        udp_msg.here_waypoints[msg->routes[ridx].actions.actions[action_id].offset-1].action = 4;
+        udp_msg.here_waypoints[msg->routes[ridx].actions.actions[action_id].offset].action = 4;
       } else  if (lower_instruction.find("exit") != std::string::npos){
-        udp_msg.here_waypoints[msg->routes[ridx].actions.actions[action_id].offset-1].action = 5;
+        udp_msg.here_waypoints[msg->routes[ridx].actions.actions[action_id].offset].action = 5;
       } else  if (lower_instruction.find("roundabout") != std::string::npos){
-        udp_msg.here_waypoints[msg->routes[ridx].actions.actions[action_id].offset-1].action = 6;
+        udp_msg.here_waypoints[msg->routes[ridx].actions.actions[action_id].offset].action = 6;
       } else  if (lower_instruction.find("u-turn") != std::string::npos){
-        udp_msg.here_waypoints[msg->routes[ridx].actions.actions[action_id].offset-1].action = 7;
+        udp_msg.here_waypoints[msg->routes[ridx].actions.actions[action_id].offset].action = 7;
       } else  if (lower_instruction.find("continue") != std::string::npos){
-        udp_msg.here_waypoints[msg->routes[ridx].actions.actions[action_id].offset-1].action = 8;
+        udp_msg.here_waypoints[msg->routes[ridx].actions.actions[action_id].offset].action = 8;
       } else  if (lower_instruction.find("keep") != std::string::npos){
-        udp_msg.here_waypoints[msg->routes[ridx].actions.actions[action_id].offset-1].action = 8;
+        udp_msg.here_waypoints[msg->routes[ridx].actions.actions[action_id].offset].action = 8;
       } else {
-        udp_msg.here_waypoints[msg->routes[ridx].actions.actions[action_id].offset-1].action = 1;
+        udp_msg.here_waypoints[msg->routes[ridx].actions.actions[action_id].offset].action = 1;
       } 
     }
 
