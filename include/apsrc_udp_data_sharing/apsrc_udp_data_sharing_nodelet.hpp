@@ -21,6 +21,7 @@
 #include <geometry_msgs/TwistStamped.h>
 #include <tf/transform_datatypes.h>
 #include <std_msgs/Int32.h>
+#include <gps_common/GPSFix.h>
 #include <visualization_msgs/Marker.h>
 #include <apsrc_msgs/CommandAccomplished.h>
 #include <apsrc_msgs/CommandReceived.h>
@@ -52,6 +53,7 @@ void udpReceivedCommandCallback(const apsrc_msgs::CommandReceived::ConstPtr& com
 void backPlaneMarkerCallback(const visualization_msgs::Marker::ConstPtr& msg);
 void leadVehicleCallback(const apsrc_msgs::LeadVehicle::ConstPtr& msg);
 void hereAppCallback(const apsrc_msgs::Response::ConstPtr& msg);
+void gpsCallback(const gps_common::GPSFix::ConstPtr& msg);
 
 // Util functions
 bool openConnection();
@@ -71,6 +73,7 @@ ros::Subscriber udp_request_sub_;
 ros::Subscriber backplane_marker_sub_;
 ros::Subscriber lead_vehicle_sub_;
 ros::Subscriber here_app_sub_;
+ros::Subscriber gps_sub_;
 
 // Internal State
 AS::Network::UDPInterface udp_interface_;
@@ -78,6 +81,7 @@ std::mutex waypoints_mtx_;
 std::mutex status_data_mtx_;
 std::mutex udp_mtx_;
 std::mutex msg_mtx_;
+std::mutex gps_mtx_;
 ApsUDPMod::Message_general message_ = {};
 uint8_t msg_id_                     = 0;
 
@@ -100,6 +104,9 @@ int destination_port_;
 double frequency_;
 bool waypoint_only_;
 int path_eval_size_;
+
+// GPS
+double gps_time_;
 
 // Utils
 float path_curvature_score(size_t num_of_wp)

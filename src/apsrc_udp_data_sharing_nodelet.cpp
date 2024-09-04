@@ -33,6 +33,7 @@ void ApsrcUdpDataSharingNl::onInit()
     udp_report_sub_         = nh_.subscribe("apsrc_udp/received_commands_report", 1, &ApsrcUdpDataSharingNl::udpReceivedReportCallback, this);
     backplane_marker_sub_   = nh_.subscribe("backplane_estimation/backplane_filtered_marker", 1, &ApsrcUdpDataSharingNl::backPlaneMarkerCallback, this);
     lead_vehicle_sub_       = nh_.subscribe("/lead_vehicle/track", 1, &ApsrcUdpDataSharingNl::leadVehicleCallback, this);
+    gps_sub_                = nh_.subscribe("/gps/gps", 10, &ApsrcUdpDataSharingNl::gpsCallback, this);
     timer_                  = nh_.createTimer(ros::Duration(1/frequency_), std::bind(&ApsrcUdpDataSharingNl::UDPDataSharingGeneral, this));
   } else {
     here_app_sub_           = nh_.subscribe("here/route", 1, &ApsrcUdpDataSharingNl::hereAppCallback, this);
@@ -82,8 +83,9 @@ void ApsrcUdpDataSharingNl::UDPDataSharingGeneral()
     UDPReportShare();
     UDPGlobalPathShare();
     message_.header.msg_id = ++msg_id_;
-    message_.header.respond_stamp[0] = ros::Time::now().sec;
-    message_.header.respond_stamp[1] = ros::Time::now().nsec;
+    ros::Time gps_time = ros::Time(gps_time_);
+    message_.header.respond_stamp[0] = gps_time.sec;
+    message_.header.respond_stamp[1] = gps_time.nsec;
     message_.crc = 0;  
   }
 }
@@ -142,6 +144,12 @@ void ApsrcUdpDataSharingNl::baseWaypointCallback(const autoware_msgs::Lane::Cons
   std::unique_lock<std::mutex> wp_lock(waypoints_mtx_);
   base_waypoints_ = *base_waypoints;
   received_base_waypoints_ = true;
+}
+
+void ApsrcUdpDataSharingNl::gpsCallback(const gps_common::GPSFix::ConstPtr& msg)
+{
+    std::unique_lock<std::mutex> gps_lock(gps_mtx_);
+    gps_time_ = msg->time;
 }
 
 void ApsrcUdpDataSharingNl::udpReceivedReportCallback(const apsrc_msgs::CommandAccomplished::ConstPtr& command_accomplished)
