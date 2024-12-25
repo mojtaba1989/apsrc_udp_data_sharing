@@ -35,6 +35,7 @@ void ApsrcUdpDataSharingNl::onInit()
     lead_vehicle_sub_       = nh_.subscribe("/lead_vehicle/track", 1, &ApsrcUdpDataSharingNl::leadVehicleCallback, this);
     gps_sub_                = nh_.subscribe("/gps/gps", 10, &ApsrcUdpDataSharingNl::gpsCallback, this);
     timer_                  = nh_.createTimer(ros::Duration(1/frequency_), std::bind(&ApsrcUdpDataSharingNl::UDPDataSharingGeneral, this));
+    SPaTnMAP_sub_           = nh_.subscribe("/v2x/SPaTnMAP", 1, &ApsrcUdpDataSharingNl::spatnmapCallback, this);
   } else {
     here_app_sub_           = nh_.subscribe("here/route", 1, &ApsrcUdpDataSharingNl::hereAppCallback, this);
   }
@@ -252,6 +253,15 @@ void ApsrcUdpDataSharingNl::hereAppCallback(const apsrc_msgs::Response::ConstPtr
     udp_interface_.write(udp_msg.pack());
     ROS_INFO("HERE map route (%d out of %d) has been shared", ridx + 1, number_of_routes);
   }
+}
+
+void ApsrcUdpDataSharingNl::spatnmapCallback(const apsrc_msgs::SPaTnMAP::ConstPtr& msg)
+{
+  std::unique_lock<std::mutex> bp_lock(msg_mtx_);
+  message_.spat_msg.distance = msg->distance_to_stop;
+  message_.spat_msg.phase = msg->phase;
+  message_.spat_msg.time_to_change = msg->time_to_stop;
+  message_.spat_msg.waypoint_id = msg->stop_waypoint;
 }
 }
 PLUGINLIB_EXPORT_CLASS(apsrc_udp_data_sharing::ApsrcUdpDataSharingNl, nodelet::Nodelet);

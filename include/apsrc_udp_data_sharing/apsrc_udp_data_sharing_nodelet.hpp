@@ -27,6 +27,7 @@
 #include <apsrc_msgs/CommandReceived.h>
 #include <apsrc_msgs/LeadVehicle.h>
 #include <apsrc_msgs/Response.h>
+#include <apsrc_msgs/SPaTnMAP.h>
 
 #include "apsrc_udp_data_sharing/packet_definitions.hpp"
 
@@ -54,6 +55,7 @@ void backPlaneMarkerCallback(const visualization_msgs::Marker::ConstPtr& msg);
 void leadVehicleCallback(const apsrc_msgs::LeadVehicle::ConstPtr& msg);
 void hereAppCallback(const apsrc_msgs::Response::ConstPtr& msg);
 void gpsCallback(const gps_common::GPSFix::ConstPtr& msg);
+void spatnmapCallback(const apsrc_msgs::SPaTnMAP::ConstPtr& msg);
 
 // Util functions
 bool openConnection();
@@ -74,6 +76,7 @@ ros::Subscriber backplane_marker_sub_;
 ros::Subscriber lead_vehicle_sub_;
 ros::Subscriber here_app_sub_;
 ros::Subscriber gps_sub_;
+ros::Subscriber SPaTnMAP_sub_;
 
 // Internal State
 AS::Network::UDPInterface udp_interface_;
@@ -82,6 +85,7 @@ std::mutex status_data_mtx_;
 std::mutex udp_mtx_;
 std::mutex msg_mtx_;
 std::mutex gps_mtx_;
+std::mutex v2x_mtx_;
 ApsUDPMod::Message_general message_ = {};
 uint8_t msg_id_                     = 0;
 

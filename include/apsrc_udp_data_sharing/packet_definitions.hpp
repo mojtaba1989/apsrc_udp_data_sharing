@@ -97,12 +97,29 @@ public:
 	}
 };
 
+class spatMsg { // 10 bytes
+public:
+	int32_t waypoint_id = -1;
+	float distance = 0;
+	uint8_t phase = 0;
+	uint8_t time_to_change = 0;
+
+	int pack(std::vector<uint8_t> &buffer, int i){
+		buffer[i] 	= phase;
+		buffer[i+1] = time_to_change;
+		std::memcpy(&buffer[i+2], &waypoint_id, 4);
+		std::memcpy(&buffer[i+6], &distance, 4);
+		return i+10;
+	}
+};
+
 class Message_general { // published periodically 
 public:
 	ApsUDPMod::header header;
 	ApsUDPMod::replyMsg replies_msg;
 	ApsUDPMod::waypointsArrayMsg waypoints_array_msg;
 	ApsUDPMod::leadDetectMsg lead_msg;
+	ApsUDPMod::spatMsg spat_msg;
 	uint32_t crc;
 	
 
@@ -112,6 +129,7 @@ public:
 		cb = replies_msg.pack(buffer, cb);
 		cb = waypoints_array_msg.pack(buffer, cb);
 		cb = lead_msg.pack(buffer, cb);
+		cb = spat_msg.pack(buffer, cb);
 		
 		// Calculate CRC
 		boost::crc_32_type msg_crc;
@@ -145,6 +163,26 @@ public:
 		std::memcpy(&buffer[40], &here_waypoints, 63960);
 		return buffer;
 	}     
-};   
+};
+
+class GPS_Msg { // share gps with MKx
+public:
+	uint64_t time_ms;
+	float latitude;
+	float longitude;
+	float elevation;
+	float speed;
+
+	std::vector<uint8_t> pack() {
+		std::vector<uint8_t> buffer(24);
+		std::memcpy(&buffer[0], &time_ms, 8);
+		std::memcpy(&buffer[8], &latitude, 4);
+		std::memcpy(&buffer[12], &longitude, 4);
+		std::memcpy(&buffer[16], &elevation, 4);
+		std::memcpy(&buffer[20], &speed, 4);
+		return buffer;
+	}  
+};
+
 }// namespace APSMod
 #endif  // PACKET_DEFINITIONS_H
