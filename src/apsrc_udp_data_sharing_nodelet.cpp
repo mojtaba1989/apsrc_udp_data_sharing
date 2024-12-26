@@ -26,26 +26,41 @@ void ApsrcUdpDataSharingNl::onInit()
   loadParams();
 
   // Subscribers & Publishers
-  base_waypoints_sub_       = nh_.subscribe("base_waypoints", 1, &ApsrcUdpDataSharingNl::baseWaypointCallback, this);
-  closest_waypoint_sub_     = nh_.subscribe("closest_waypoint", 1, &ApsrcUdpDataSharingNl::closestWaypointCallback, this);
-
-  if (!waypoint_only_){
-    udp_report_sub_         = nh_.subscribe("apsrc_udp/received_commands_report", 1, &ApsrcUdpDataSharingNl::udpReceivedReportCallback, this);
-    backplane_marker_sub_   = nh_.subscribe("backplane_estimation/backplane_filtered_marker", 1, &ApsrcUdpDataSharingNl::backPlaneMarkerCallback, this);
-    lead_vehicle_sub_       = nh_.subscribe("/lead_vehicle/track", 1, &ApsrcUdpDataSharingNl::leadVehicleCallback, this);
-    gps_sub_                = nh_.subscribe("/gps/gps", 10, &ApsrcUdpDataSharingNl::gpsCallback, this);
-    timer_                  = nh_.createTimer(ros::Duration(1/frequency_), std::bind(&ApsrcUdpDataSharingNl::UDPDataSharingGeneral, this));
-    SPaTnMAP_sub_           = nh_.subscribe("/v2x/SPaTnMAP", 1, &ApsrcUdpDataSharingNl::spatnmapCallback, this);
-  } else {
-    here_app_sub_           = nh_.subscribe("here/route", 1, &ApsrcUdpDataSharingNl::hereAppCallback, this);
+  if (gps_v2x_ && waypoint_only_){
+    ROS_ERROR("More than one service requested from a single node");
+    ros::requestShutdown();
   }
 
+  if (waypoint_only_){
+    here_app_sub_ = nh_.subscribe("here/route", 1, &ApsrcUdpDataSharingNl::hereAppCallback, this);
+    ROS_INFO("Interface to HERE map enabled");
+    goto EXIT;
+  }
+
+  if (gps_v2x_){
+    gps_sub_                = nh_.subscribe("/gps/gps", 10, &ApsrcUdpDataSharingNl::gpsMKxCallback, this);
+    current_velocity_sub_   = nh_.subscribe("/current_velocity", 1, &ApsrcUdpDataSharingNl::velocityCallback, this);
+    imu_sub_                = nh_.subscribe("/current_pose", 10, &ApsrcUdpDataSharingNl::imuCallback, this);
+    ROS_INFO("Interface to MKx enabled");
+    goto EXIT;
+  }
+  
+  base_waypoints_sub_     = nh_.subscribe("base_waypoints", 1, &ApsrcUdpDataSharingNl::baseWaypointCallback, this);
+  closest_waypoint_sub_   = nh_.subscribe("closest_waypoint", 1, &ApsrcUdpDataSharingNl::closestWaypointCallback, this);
+  timer_                  = nh_.createTimer(ros::Duration(1/frequency_), std::bind(&ApsrcUdpDataSharingNl::UDPDataSharingGeneral, this));
+  SPaTnMAP_sub_           = nh_.subscribe("/v2x/SPaTnMAP", 1, &ApsrcUdpDataSharingNl::spatnmapCallback, this);
+  udp_report_sub_         = nh_.subscribe("apsrc_udp/received_commands_report", 1, &ApsrcUdpDataSharingNl::udpReceivedReportCallback, this);
+  backplane_marker_sub_   = nh_.subscribe("backplane_estimation/backplane_filtered_marker", 1, &ApsrcUdpDataSharingNl::backPlaneMarkerCallback, this);
+  lead_vehicle_sub_       = nh_.subscribe("/lead_vehicle/track", 1, &ApsrcUdpDataSharingNl::leadVehicleCallback, this);
+  gps_sub_                = nh_.subscribe("/gps/gps", 10, &ApsrcUdpDataSharingNl::gpsCallback, this);
+
+
+EXIT: //check connection before exit
   if (openConnection())
   {
   } else {
     ros::requestShutdown(); // or maybe not
   }
-
 }
 
 bool ApsrcUdpDataSharingNl::openConnection(){
@@ -78,15 +93,18 @@ void ApsrcUdpDataSharingNl::loadParams()
 void ApsrcUdpDataSharingNl::UDPDataSharingGeneral()
 {
   if (udp_interface_.is_open()){
+    std::unique_lock<std::mutex> msg_lock(msg_mtx_);
     udp_interface_.write(message_.pack());
     message_ = {};
     message_.header.info[0] = 0;
     UDPReportShare();
     UDPGlobalPathShare();
     message_.header.msg_id = ++msg_id_;
-    ros::Time gps_time = ros::Time(gps_time_);
-    message_.header.respond_stamp[0] = gps_time.sec;
-    message_.header.respond_stamp[1] = gps_time.nsec;
+    {
+      std::unique_lock<std::mutex> gps_lock(gps_mtx_);
+      message_.header.respond_stamp[0] = gps_.header.stamp.sec;
+      message_.header.respond_stamp[1] = gps_.header.stamp.nsec;
+    }
     message_.crc = 0;  
   }
 }
@@ -136,13 +154,13 @@ void ApsrcUdpDataSharingNl::UDPGlobalPathShare()
 
 void ApsrcUdpDataSharingNl::closestWaypointCallback(const std_msgs::Int32::ConstPtr& closest_waypoint_id)
 {
-  std::unique_lock<std::mutex> cwp_lock(status_data_mtx_);
+  std::unique_lock<std::mutex> cwp_lock(cwp_mtx_);
   closest_waypoint_id_ = closest_waypoint_id->data;
 }
 
 void ApsrcUdpDataSharingNl::baseWaypointCallback(const autoware_msgs::Lane::ConstPtr& base_waypoints)
 {
-  std::unique_lock<std::mutex> wp_lock(waypoints_mtx_);
+  std::unique_lock<std::mutex> wp_lock(wp_mtx_);
   base_waypoints_ = *base_waypoints;
   received_base_waypoints_ = true;
 }
@@ -150,7 +168,7 @@ void ApsrcUdpDataSharingNl::baseWaypointCallback(const autoware_msgs::Lane::Cons
 void ApsrcUdpDataSharingNl::gpsCallback(const gps_common::GPSFix::ConstPtr& msg)
 {
     std::unique_lock<std::mutex> gps_lock(gps_mtx_);
-    gps_time_ = msg->time;
+    gps_ = *msg;
 }
 
 void ApsrcUdpDataSharingNl::udpReceivedReportCallback(const apsrc_msgs::CommandAccomplished::ConstPtr& command_accomplished)
@@ -184,6 +202,15 @@ void ApsrcUdpDataSharingNl::leadVehicleCallback(const apsrc_msgs::LeadVehicle::C
     message_.lead_msg.lead_vel_mps_abs = msg->speed_mps;
     message_.lead_msg.lead_vel_mps_rel = msg->relative_speed_mps;
   }
+}
+
+void ApsrcUdpDataSharingNl::spatnmapCallback(const apsrc_msgs::SPaTnMAP::ConstPtr& msg)
+{
+  std::unique_lock<std::mutex> bp_lock(msg_mtx_);
+  message_.spat_msg.distance = msg->distance_to_stop;
+  message_.spat_msg.phase = msg->phase;
+  message_.spat_msg.time_to_change = msg->time_to_stop;
+  message_.spat_msg.waypoint_id = msg->stop_waypoint;
 }
 
 void ApsrcUdpDataSharingNl::hereAppCallback(const apsrc_msgs::Response::ConstPtr& msg)
@@ -255,13 +282,29 @@ void ApsrcUdpDataSharingNl::hereAppCallback(const apsrc_msgs::Response::ConstPtr
   }
 }
 
-void ApsrcUdpDataSharingNl::spatnmapCallback(const apsrc_msgs::SPaTnMAP::ConstPtr& msg)
+void ApsrcUdpDataSharingNl::imuCallback(const geometry_msgs::PoseStamped::ConstPtr& msg)
 {
-  std::unique_lock<std::mutex> bp_lock(msg_mtx_);
-  message_.spat_msg.distance = msg->distance_to_stop;
-  message_.spat_msg.phase = msg->phase;
-  message_.spat_msg.time_to_change = msg->time_to_stop;
-  message_.spat_msg.waypoint_id = msg->stop_waypoint;
+  std::unique_lock<std::mutex> imu_lock(udp_mtx_);
+  MKx_msg_.yaw = M_PI/2 + tf::getYaw(msg->pose.orientation);
 }
+
+void ApsrcUdpDataSharingNl::velocityCallback(const geometry_msgs::TwistStamped::ConstPtr& current_velocity)
+{
+  std::unique_lock<std::mutex> udp_lock(udp_mtx_);
+  MKx_msg_.speed = current_velocity->twist.linear.x;
+}
+
+void ApsrcUdpDataSharingNl::gpsMKxCallback(const gps_common::GPSFix::ConstPtr& msg)
+{
+  std::unique_lock<std::mutex> cv_lock(udp_mtx_);
+  MKx_msg_.latitude   = static_cast<float>(msg->latitude);
+  MKx_msg_.longitude  = static_cast<float>(msg->longitude);
+  MKx_msg_.elevation  = static_cast<float>(msg->altitude);
+  MKx_msg_.time_ms    = static_cast<uint64_t>((msg->header.stamp.sec + msg->header.stamp.nsec)*1000);
+  udp_interface_.write(MKx_msg_.pack());
+  MKx_msg_ = {};
+}
+
+
 }
 PLUGINLIB_EXPORT_CLASS(apsrc_udp_data_sharing::ApsrcUdpDataSharingNl, nodelet::Nodelet);

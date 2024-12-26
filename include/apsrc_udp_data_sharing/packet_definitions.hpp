@@ -172,14 +172,16 @@ public:
 	float longitude;
 	float elevation;
 	float speed;
+	float yaw;
 
 	std::vector<uint8_t> pack() {
-		std::vector<uint8_t> buffer(24);
+		std::vector<uint8_t> buffer(28);
 		std::memcpy(&buffer[0], &time_ms, 8);
 		std::memcpy(&buffer[8], &latitude, 4);
 		std::memcpy(&buffer[12], &longitude, 4);
 		std::memcpy(&buffer[16], &elevation, 4);
 		std::memcpy(&buffer[20], &speed, 4);
+		std::memcpy(&buffer[24], &yaw, 4);
 		return buffer;
 	}  
 };

@@ -22,6 +22,7 @@
 #include <tf/transform_datatypes.h>
 #include <std_msgs/Int32.h>
 #include <gps_common/GPSFix.h>
+#include <geometry_msgs/PoseStamped.h>
 #include <visualization_msgs/Marker.h>
 #include <apsrc_msgs/CommandAccomplished.h>
 #include <apsrc_msgs/CommandReceived.h>
@@ -56,6 +57,9 @@ void leadVehicleCallback(const apsrc_msgs::LeadVehicle::ConstPtr& msg);
 void hereAppCallback(const apsrc_msgs::Response::ConstPtr& msg);
 void gpsCallback(const gps_common::GPSFix::ConstPtr& msg);
 void spatnmapCallback(const apsrc_msgs::SPaTnMAP::ConstPtr& msg);
+void velocityCallback(const geometry_msgs::TwistStamped::ConstPtr& msg);
+void imuCallback(const geometry_msgs::PoseStamped::ConstPtr& msg);
+void gpsMKxCallback(const gps_common::GPSFix::ConstPtr& msg);
 
 // Util functions
 bool openConnection();
@@ -67,33 +71,46 @@ void UDPReportShare();
 ros::NodeHandle nh_, pnh_;
 
 // Subscribers
+ros::Subscriber here_app_sub_;
+
+ros::Subscriber imu_sub_;
+ros::Subscriber gps_sub_;
 ros::Subscriber current_velocity_sub_;
+
 ros::Subscriber closest_waypoint_sub_;
 ros::Subscriber base_waypoints_sub_;
 ros::Subscriber udp_report_sub_;
 ros::Subscriber udp_request_sub_;
 ros::Subscriber backplane_marker_sub_;
 ros::Subscriber lead_vehicle_sub_;
-ros::Subscriber here_app_sub_;
-ros::Subscriber gps_sub_;
 ros::Subscriber SPaTnMAP_sub_;
+
 
 // Internal State
 AS::Network::UDPInterface udp_interface_;
-std::mutex waypoints_mtx_;
-std::mutex status_data_mtx_;
+
+// Parameters
+std::string destination_ip_;
+int destination_port_;
+double frequency_;
+bool waypoint_only_;
+bool gps_v2x_;
+int path_eval_size_;
+
+
+//// General message
+std::mutex wp_mtx_, cwp_mtx_;
 std::mutex udp_mtx_;
 std::mutex msg_mtx_;
 std::mutex gps_mtx_;
 std::mutex v2x_mtx_;
+gps_common::GPSFix gps_;
 ApsUDPMod::Message_general message_ = {};
 uint8_t msg_id_                     = 0;
 
 // Current base_waypoints
 bool received_base_waypoints_   = false;
 autoware_msgs::Lane base_waypoints_;
-bool full_path_has_been_shared_ = false;
-size_t last_shared_id_          = 0;
 
 // Report
 apsrc_msgs::CommandAccomplished report_ = {};
@@ -102,15 +119,9 @@ bool report_received_                   = false;
 // Closest global waypoint id
 int32_t closest_waypoint_id_ = 0;
 
-// Parameters
-std::string destination_ip_;
-int destination_port_;
-double frequency_;
-bool waypoint_only_;
-int path_eval_size_;
-
-// GPS
-double gps_time_;
+//// GPS-MKx
+std::mutex cv_mtx_, imu_mtx_;
+ApsUDPMod::GPS_Msg MKx_msg_;
 
 // Utils
 float path_curvature_score(size_t num_of_wp)
